@@ -69,3 +69,22 @@ dev.nohup.log
 *.njsproj
 *.sln
 *.sw?
+
+# AI editor / coding-agent files (never commit)
+.claude/
+.cursor/
+.commandcode/
+**/CLAUDE.md
+**/.cursorrules
+**/.claude
+**/.cursor
+**/.commandcode
+TkanMarket-cursor-rules.md
+
+# documentation / planning / PRD markdown (kept local, not in git or deploy image)
+*.md
+!README.md
+
+# local scratch / scratchpads
+test-slug*.ts
+*.scratch.ts
