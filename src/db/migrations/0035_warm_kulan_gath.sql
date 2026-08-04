@@ -1,0 +1,1 @@
+CREATE INDEX "lead_notes_deleted_at_idx" ON "lead_notes" USING btree ("deleted_at");

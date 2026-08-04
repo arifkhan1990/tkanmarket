@@ -1,0 +1,1 @@
+ALTER TABLE "fabrics" ADD COLUMN "tags_en" text[];

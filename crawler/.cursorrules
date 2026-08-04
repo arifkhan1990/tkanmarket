@@ -1,0 +1,21 @@
+# TkanMarket – Cursor Rules
+# This file is automatically read by Cursor AI
+
+## Stack
+Next.js 16 App Router · TypeScript 5 strict · Tailwind CSS · Shadcn/UI · TanStack Query 5
+Drizzle ORM · PostgreSQL 16 · BullMQ · Redis 7 · Playwright · OpenAI API
+
+## CRITICAL: Database Primary Keys
+EVERY table: integer('id').generatedAlwaysAsIdentity().primaryKey()
+NEVER UUID as PK. NEVER BIGSERIAL.
+
+## CRITICAL: Every Table Needs
+created_at, updated_at (timestamptz, defaultNow())
+deleted_at (timestamptz, nullable) – soft delete always
+
+## CRITICAL: No business logic in API routes – services only
+## CRITICAL: All inputs validated with Zod
+## CRITICAL: Named exports everywhere except page.tsx
+## CRITICAL: No any type – use unknown and narrow
+## CRITICAL: Mobile-first Tailwind only (no CSS modules)
+## CRITICAL: next/image for all images with explicit dimensions

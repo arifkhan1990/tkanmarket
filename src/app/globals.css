@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .admin-shell {
+    --admin-sidebar-width: 16rem;
+    --admin-topbar-height: 3.5rem;
+    --admin-footer-height: 2.5rem;
+  }
+  .admin-shell.is-collapsed {
+    --admin-sidebar-width: 72px;
+  }
+
+  .sidebar-link {
+    transition: background-color 0.2s ease, transform 0.15s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .sidebar-link:hover {
+    background-color: color-mix(in srgb, var(--tm-on-surface) 6%, transparent);
+    color: var(--tm-on-surface);
+    transform: translateX(2px);
+  }
+  .sidebar-link:active {
+    transform: translateX(2px) scale(0.98);
+    background-color: color-mix(in srgb, var(--tm-on-surface) 10%, transparent);
+  }
+  .dark .sidebar-link:hover {
+    background-color: color-mix(in srgb, var(--tm-on-surface) 8%, transparent);
+  }
+  .dark .sidebar-link:active {
+    background-color: color-mix(in srgb, var(--tm-on-surface) 12%, transparent);
+  }
+
+  .admin-sidebar-surface {
+    background: var(--tm-surface-container-lowest);
+  }
+  .dark .admin-sidebar-surface {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--tm-surface-container-lowest) 100%, transparent) 0%,
+      color-mix(in srgb, var(--tm-surface-container-low) 60%, var(--tm-surface-container-lowest) 40%) 100%
+    );
+  }
+
+  .admin-sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .admin-sidebar-scroll:hover {
+    scrollbar-color: color-mix(in srgb, var(--tm-outline-variant) 35%, transparent) transparent;
+  }
+  .admin-sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .admin-sidebar-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: transparent;
+  }
+  .admin-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--tm-outline-variant) 30%, transparent);
+  }
+  .admin-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 50px rgba(24, 28, 32, 0.06);
+  }
+
+  .dark .glass-card {
+    background: rgba(17, 24, 39, 0.88);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+
+  .primary-gradient {
+    background: linear-gradient(135deg, #1a40c2 0%, #3b5bdb 100%);
+  }
+}
+
+@layer base {
+  :root {
+    --tm-background: #f7f9ff;
+    --tm-on-surface: #181c20;
+    --tm-on-surface-variant: #444654;
+    --tm-surface: #f7f9ff;
+    --tm-surface-bright: #f7f9ff;
+    --tm-surface-container-lowest: #ffffff;
+    --tm-surface-container-low: #f1f4f9;
+    --tm-surface-container: #ebeef3;
+    --tm-surface-container-high: #e5e8ee;
+    --tm-surface-container-highest: #e0e3e8;
+    --tm-outline: #747686;
+    --tm-outline-variant: #c4c5d6;
+  }
+
+  .dark {
+    --tm-background: #0b1220;
+    --tm-on-surface: #e7eaf0;
+    --tm-on-surface-variant: #b9c0d0;
+    --tm-surface: #0f172a;
+    --tm-surface-bright: #0f172a;
+    --tm-surface-container-lowest: #111827;
+    --tm-surface-container-low: #0b1220;
+    --tm-surface-container: #0b1326;
+    --tm-surface-container-high: #0d1733;
+    --tm-surface-container-highest: #101e3a;
+    --tm-outline: #334155;
+    --tm-outline-variant: #475569;
+  }
+
+  html {
+    @apply bg-background text-on-surface;
+  }
+
+  body {
+    @apply bg-background text-on-surface font-sans antialiased;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+

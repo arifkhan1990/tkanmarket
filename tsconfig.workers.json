@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "./dist-workers",
+    "rootDir": ".",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["es2022"],
+    "jsx": "preserve",
+    "sourceMap": true
+  },
+  "include": ["src/workers/**/*.ts", "src/services/workers/**/*.ts", "src/lib/**/*.ts", "src/db/**/*.ts", "src/types/**/*.ts", "src/constants/**/*.ts", "src/config/features*.ts", "src/config/features*.json"],
+  "exclude": ["node_modules", ".next", "dist-workers"]
+}
+

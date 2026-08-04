@@ -1,0 +1,39 @@
+/** Copy bundle for `/admin/alerts` hub (overview + chrome). */
+export interface HubCopy {
+  title: string
+  subtitle: string
+  openFullPage: string
+  refresh: string
+  lastSync: string
+  tabOverview: string
+  tabInbox: string
+  tabPreferences: string
+  tabSystemAlerts: string
+  tabPolicy: string
+  kpiUnreadLabel: string
+  kpiUnreadHint: string
+  kpiHighPriorityLabel: string
+  kpiHighPriorityHint: string
+  kpiMonitorsLabel: string
+  kpiMonitorsHint: string
+  kpiChannelsLabel: string
+  kpiChannelsHint: string
+  ofTotal: string
+  last7DaysSuffix: string
+  recentUnreadTitle: string
+  recentUnreadEmpty: string
+  recentTriggeredTitle: string
+  recentTriggeredEmpty: string
+  viewInbox: string
+  viewMonitors: string
+  highPriorityBadge: string
+  operationalBadge: string
+  warningBadge: string
+  failedBadge: string
+  avgLoadMs: string
+  overviewLoadFailed: string
+  settingsTriggers: string
+  retry: string
+  kpiSectionLabel: string
+  activitySectionLabel: string
+}

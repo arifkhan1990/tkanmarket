@@ -1,0 +1,279 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1775141745961,
+      "tag": "0000_cloudy_otto_octavius",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775142466488,
+      "tag": "0001_sloppy_guardsmen",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775191555546,
+      "tag": "0002_thin_madame_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775199999999,
+      "tag": "0004_add_blog_posts",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775336700738,
+      "tag": "0005_bulk_orders_and_wishlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1775400000000,
+      "tag": "0006_commission_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775500000000,
+      "tag": "0007_crawler_default_max_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775600000000,
+      "tag": "0008_logistics_shipments_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775700000000,
+      "tag": "0009_fabrics_seo_alt_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1775800000000,
+      "tag": "0010_admin_announcements",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775900000000,
+      "tag": "0011_admin_settings_lead_ops_json",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776000000000,
+      "tag": "0012_supplier_ops",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776100000000,
+      "tag": "0013_admin_settings_system_alerts_json",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776200000000,
+      "tag": "0014_system_console",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776300000000,
+      "tag": "0015_platform_regional_timezone",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776400000000,
+      "tag": "0015_left_toad",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776500000000,
+      "tag": "0016_catalog_export_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776600000000,
+      "tag": "0017_logistics_carriers",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1776700000000,
+      "tag": "0018_newsletter_subscribers",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1776800000000,
+      "tag": "0019_supplier_discovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1776800000001,
+      "tag": "0020_fabric_category_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1776800000002,
+      "tag": "0021_supplier_discovery_run_note",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1776800000003,
+      "tag": "0022_social_media_production",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779721347630,
+      "tag": "0023_add_fabrics_tags_en",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783427363303,
+      "tag": "0024_vertex_ai_generated_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783458215495,
+      "tag": "0025_charming_hex",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1785128382156,
+      "tag": "0026_white_swarm",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1785174588905,
+      "tag": "0028_careful_gamora",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785219672454,
+      "tag": "0029_jittery_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1785235331185,
+      "tag": "0030_public_squirrel_girl",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785243882521,
+      "tag": "0031_sticky_gladiator",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1785247697422,
+      "tag": "0032_flippant_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1785385060228,
+      "tag": "0033_magical_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785442265320,
+      "tag": "0034_fluffy_zarek",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785442286980,
+      "tag": "0035_warm_kulan_gath",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785456372236,
+      "tag": "0036_next_hellion",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785554288689,
+      "tag": "0037_green_aqueduct",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1785638008522,
+      "tag": "0038_wandering_hydra",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1785641159559,
+      "tag": "0039_needy_talkback",
+      "breakpoints": true
+    }
+  ]
+}

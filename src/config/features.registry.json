@@ -1,0 +1,819 @@
+[
+  {
+    "id": "blog",
+    "label": "Blog",
+    "description": "Public blog posts, categories, detail pages. Content/SEO play, non-core.",
+    "routes": ["/blog", "/blog/(.*)"],
+    "apiPaths": ["/api/v1/public/blog", "/api/v1/admin/blog"],
+    "adminPaths": [],
+    "navKeys": ["blog"],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["blog-posts", "blog-categories"],
+    "files": [
+      "src/app/(public)/blog",
+      "src/services/blog.service.ts",
+      "src/db/schema/blog.schema.ts",
+      "src/lib/blog-image-url.ts",
+      "src/lib/blog-post-detail-utils.ts",
+      "src/lib/blog-stitch-posts.ts",
+      "src/lib/blog-topics.ts"
+    ]
+  },
+  {
+    "id": "newsletter",
+    "label": "Newsletter Subscribers",
+    "description": "Email newsletter signup + subscriber list. Replaceable by Mailchimp/SendGrid.",
+    "routes": [],
+    "apiPaths": ["/api/v1/public/newsletter", "/api/v1/admin/newsletter"],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["newsletter_subscribers"],
+    "files": [
+      "src/services/newsletter.service.ts",
+      "src/db/schema/newsletter-subscribers.schema.ts"
+    ]
+  },
+  {
+    "id": "wishlist",
+    "label": "Buyer Wishlist",
+    "description": "Buyer-side fabric wishlist. Not connected to lead pipeline.",
+    "routes": ["/wishlist", "/wishlist/(.*)"],
+    "apiPaths": ["/api/v1/wishlist"],
+    "adminPaths": [],
+    "navKeys": ["wishlist"],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["buyer_wishlist"],
+    "files": [
+      "src/app/(public)/wishlist",
+      "src/services/buyer-wishlist.service.ts",
+      "src/db/schema/buyer-wishlist.schema.ts",
+      "src/lib/wishlist"
+    ]
+  },
+  {
+    "id": "cookie-consent",
+    "label": "Cookie Consent Manager",
+    "description": "Full cookie preference UI + GDPR compliance tracking. Replaceable by simple privacy notice.",
+    "routes": ["/cookie-preferences"],
+    "apiPaths": ["/api/v1/public/cookie-consent"],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["cookie_consents"],
+    "files": [
+      "src/app/(public)/cookie-preferences",
+      "src/services/cookie-consent.service.ts",
+      "src/db/schema/cookie-consents.schema.ts"
+    ]
+  },
+  {
+    "id": "message-center",
+    "label": "Internal Message Center",
+    "description": "Internal messaging between team members. Replaceable by Slack/email.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/message-center"],
+    "adminPaths": ["/admin/message-center", "/admin/internal-communications"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/message-center", "/admin/internal-communications"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/message-center",
+      "src/app/(admin)/(authenticated)/admin/internal-communications",
+      "src/services/admin-message-center.service.ts",
+      "src/services/admin-message-center-api.service.ts"
+    ]
+  },
+  {
+    "id": "help-support",
+    "label": "Help & Support Center",
+    "description": "Support ticket system + knowledge base UI. Replaceable by Zendesk/HelpScout.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/help-support"],
+    "adminPaths": ["/admin/help-support"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/help-support"],
+    "workers": [],
+    "schemas": ["support_tickets", "support_articles"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/help-support",
+      "src/services/admin-help-support.service.ts",
+      "src/db/schema/support.schema.ts"
+    ]
+  },
+  {
+    "id": "promotion-manager",
+    "label": "Promotion Manager",
+    "description": "Marketplace promotions + analytics. Not needed for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/promotion-manager", "/api/v1/admin/promotion-analytics"],
+    "adminPaths": ["/admin/promotion-manager", "/admin/promotion-analytics"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/promotion-manager", "/admin/promotion-analytics"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/promotion-manager",
+      "src/app/(admin)/(authenticated)/admin/promotion-analytics",
+      "src/services/admin-promotion-manager.service.ts",
+      "src/services/admin-promotion-manager-api.service.ts",
+      "src/services/admin-promotion-analytics.service.ts",
+      "src/services/admin-promotion-analytics-api.service.ts"
+    ]
+  },
+  {
+    "id": "bulk-order",
+    "label": "Bulk Order Management",
+    "description": "Bulk order creation/tracking/fulfillment. PRD says no payment processing in Phase 1.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/bulk-orders"],
+    "adminPaths": ["/admin/bulk-order-management"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/bulk-order-management"],
+    "workers": [],
+    "schemas": ["bulk_orders", "bulk_order_items"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/bulk-order-management",
+      "src/services/admin-bulk-orders.service.ts",
+      "src/db/schema/bulk-orders.schema.ts"
+    ]
+  },
+  {
+    "id": "inventory-hub",
+    "label": "Inventory Distribution Hub",
+    "description": "Warehouse + inventory allocation + sample inventory. No real warehouse integration yet.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/inventory-fabrics", "/api/v1/admin/inventory-insights", "/api/v1/admin/sample-lifecycle"],
+    "adminPaths": [
+      "/admin/inventory-distribution-hub",
+      "/admin/inventory-health",
+      "/admin/inventory-health-distribution",
+      "/admin/sample-inventory",
+      "/admin/sample-lifecycle"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": [
+      "/admin/inventory-distribution-hub",
+      "/admin/inventory-health",
+      "/admin/inventory-health-distribution",
+      "/admin/sample-inventory",
+      "/admin/sample-lifecycle"
+    ],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/inventory-distribution-hub",
+      "src/app/(admin)/(authenticated)/admin/inventory-health",
+      "src/app/(admin)/(authenticated)/admin/inventory-health-distribution",
+      "src/app/(admin)/(authenticated)/admin/sample-inventory",
+      "src/app/(admin)/(authenticated)/admin/sample-lifecycle",
+      "src/services/admin-inventory-fabrics-list.service.ts",
+      "src/services/admin-inventory-insights.service.ts",
+      "src/services/admin-sample-lifecycle.service.ts",
+      "src/services/admin-sample-lifecycle-api.service.ts"
+    ]
+  },
+  {
+    "id": "logistics-ui",
+    "label": "Logistics & Shipping UI",
+    "description": "Carrier management + shipping rate calculator + global logistics UI. No carrier API integrations.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/logistics", "/api/v1/admin/shipping-rates"],
+    "adminPaths": ["/admin/carrier-management", "/admin/global-shipping-logistics"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/carrier-management", "/admin/global-shipping-logistics"],
+    "workers": [],
+    "schemas": ["logistics_carriers", "logistics_shipments"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/carrier-management",
+      "src/app/(admin)/(authenticated)/admin/global-shipping-logistics",
+      "src/services/admin-logistics-carriers.service.ts",
+      "src/services/admin-logistics-shipments.service.ts",
+      "src/services/shipping-rate-calculator.service.ts",
+      "src/db/schema/logistics.schema.ts"
+    ]
+  },
+  {
+    "id": "commission-rules",
+    "label": "Commission Rules",
+    "description": "Commission configuration for marketplace. Premature until Phase 2 revenue model.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/commission-rules"],
+    "adminPaths": ["/admin/commission-rules"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/commission-rules"],
+    "workers": [],
+    "schemas": ["commission_rules"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/commission-rules",
+      "src/services/commission-rules.service.ts",
+      "src/services/admin-commission-rules-api.service.ts",
+      "src/db/schema/commission-rules.schema.ts"
+    ]
+  },
+  {
+    "id": "wholesale-pricing",
+    "label": "Wholesale Pricing Tiers",
+    "description": "Wholesale pricing tier config + simulator + per-supplier pricing. Premature until revenue model is clear — marketplace scrapes supplier prices, doesn't set them.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/wholesale-pricing"],
+    "adminPaths": [
+      "/admin/wholesale-pricing",
+      "/admin/wholesale-pricing-simulator",
+      "/admin/suppliers/*/wholesale-pricing"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/wholesale-pricing-simulator", "/admin/wholesale-pricing/tiers"],
+    "workers": [],
+    "schemas": ["wholesale_pricing_profiles"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/wholesale-pricing",
+      "src/app/(admin)/(authenticated)/admin/wholesale-pricing-simulator",
+      "src/app/(admin)/(authenticated)/admin/suppliers/[id]/wholesale-pricing",
+      "src/services/wholesale-pricing-admin.service.ts",
+      "src/db/schema/wholesale-pricing-profiles.schema.ts",
+      "src/lib/wholesale-pricing",
+      "src/lib/format-pricing-optimization-body.ts"
+    ]
+  },
+  {
+    "id": "api-keys",
+    "label": "API Keys & Sandbox",
+    "description": "External API key management + API playground. Not needed until external partners.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/api-keys"],
+    "adminPaths": ["/admin/api-keys", "/admin/api-sandbox"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/api-keys", "/admin/api-sandbox"],
+    "workers": [],
+    "schemas": ["api_keys"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/api-keys",
+      "src/app/(admin)/(authenticated)/admin/api-sandbox",
+      "src/services/api-keys-admin.service.ts",
+      "src/db/schema/api-keys.schema.ts"
+    ]
+  },
+  {
+    "id": "team-management",
+    "label": "Team Management",
+    "description": "Team creation, members, performance. Simple user-role mapping is enough for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/teams", "/api/v1/admin/team-members"],
+    "adminPaths": ["/admin/teams", "/admin/team-performance"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/teams", "/admin/team-performance"],
+    "workers": [],
+    "schemas": ["teams", "team_members"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/teams",
+      "src/app/(admin)/(authenticated)/admin/team-performance",
+      "src/services/team-admin.service.ts",
+      "src/db/schema/teams.schema.ts"
+    ]
+  },
+  {
+    "id": "advanced-analytics",
+    "label": "Advanced Analytics & Reports",
+    "description": "Custom report builder + marketplace/sales/pricing analytics. Nice-to-have dashboards.",
+    "routes": [],
+    "apiPaths": [
+      "/api/v1/admin/advanced-analytics",
+      "/api/v1/admin/marketplace-analytics",
+      "/api/v1/admin/sales-performance",
+      "/api/v1/admin/pricing-analysis",
+      "/api/v1/admin/reports"
+    ],
+    "adminPaths": [
+      "/admin/advanced-analytics",
+      "/admin/marketplace-analytics",
+      "/admin/sales-performance",
+      "/admin/pricing-analysis",
+      "/admin/reports"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": [
+      "/admin/marketplace-analytics",
+      "/admin/sales-performance",
+      "/admin/pricing-analysis",
+      "/admin/reports/custom-builder"
+    ],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/advanced-analytics",
+      "src/app/(admin)/(authenticated)/admin/marketplace-analytics",
+      "src/app/(admin)/(authenticated)/admin/sales-performance",
+      "src/app/(admin)/(authenticated)/admin/pricing-analysis",
+      "src/app/(admin)/(authenticated)/admin/reports",
+      "src/services/admin-advanced-analytics.service.ts",
+      "src/services/admin-advanced-analytics-api.service.ts",
+      "src/services/admin-marketplace-analytics-api.service.ts",
+      "src/services/admin-sales-performance.service.ts",
+      "src/services/admin-sales-performance-api.service.ts",
+      "src/services/admin-pricing-analysis.service.ts",
+      "src/services/admin-pricing-analysis-api.service.ts",
+      "src/services/admin-custom-report.service.ts",
+      "src/services/admin/custom-report-admin.service.ts",
+      "src/lib/export-custom-report-csv.ts",
+      "src/lib/export-custom-report-json.ts"
+    ]
+  },
+  {
+    "id": "system-monitoring",
+    "label": "System Health & Monitoring",
+    "description": "System health + alerts + network performance + backup. Use Vercel/Railway dashboards instead.",
+    "routes": [],
+    "apiPaths": [
+      "/api/v1/admin/system-health",
+      "/api/v1/admin/system-health-monitor",
+      "/api/v1/admin/system-alerts",
+      "/api/v1/admin/system-alert-config",
+      "/api/v1/admin/network-performance",
+      "/api/v1/admin/system-backup",
+      "/api/v1/admin/alerts"
+    ],
+    "adminPaths": [
+      "/admin/system-health-monitor",
+      "/admin/system-health",
+      "/admin/system-alerts",
+      "/admin/system-alert-config",
+      "/admin/network-performance",
+      "/admin/system-backup-recovery",
+      "/admin/technical-diagnostics",
+      "/admin/alerts"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": [
+      "/admin/system-health-monitor",
+      "/admin/system-backup-recovery",
+      "/admin/network-performance",
+      "/admin/technical-diagnostics",
+      "/admin/alerts"
+    ],
+    "workers": [],
+    "schemas": ["system_console_events", "system_alerts_config"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system-health",
+      "src/app/(admin)/(authenticated)/admin/system-health-monitor",
+      "src/app/(admin)/(authenticated)/admin/system-alerts",
+      "src/app/(admin)/(authenticated)/admin/system-alert-config",
+      "src/app/(admin)/(authenticated)/admin/network-performance",
+      "src/app/(admin)/(authenticated)/admin/system-backup-recovery",
+      "src/app/(admin)/(authenticated)/admin/technical-diagnostics",
+      "src/app/(admin)/(authenticated)/admin/alerts",
+      "src/services/admin-system-health.service.ts",
+      "src/services/admin-system-health-dashboard.service.ts",
+      "src/services/admin-system-alerts.service.ts",
+      "src/services/admin-system-backup.service.ts",
+      "src/services/admin-network-performance.service.ts",
+      "src/services/admin-network-performance-api.service.ts",
+      "src/services/admin-alerts-hub-overview.service.ts",
+      "src/services/system-health-admin.service.ts",
+      "src/services/system-alert-config.service.ts",
+      "src/db/schema/system-console.schema.ts"
+    ]
+  },
+  {
+    "id": "notification-ui",
+    "label": "In-App Notification UI",
+    "description": "In-app notifications + per-user settings UI. Email alerts only is enough.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/notifications"],
+    "adminPaths": ["/admin/notifications", "/admin/notification-settings"],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["notifications", "notification_settings"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/notifications",
+      "src/app/(admin)/(authenticated)/admin/notification-settings",
+      "src/services/admin-notifications.service.ts",
+      "src/services/admin-notification-settings.service.ts",
+      "src/db/schema/notifications.schema.ts",
+      "src/lib/admin-notification-preferences.ts"
+    ]
+  },
+  {
+    "id": "product-attribute-manager",
+    "label": "Product Attribute Manager",
+    "description": "Dynamic fabric attribute config. AI pipeline already hardcodes attributes.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/product-attributes"],
+    "adminPaths": ["/admin/product-attribute-manager", "/admin/product-attributes"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/product-attribute-manager"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/product-attribute-manager",
+      "src/app/(admin)/(authenticated)/admin/product-attributes",
+      "src/services/admin-product-attributes.service.ts",
+      "src/services/admin-product-attributes-api.service.ts"
+    ]
+  },
+  {
+    "id": "two-factor-auth",
+    "label": "Two-Factor Authentication",
+    "description": "TOTP 2FA + recovery codes. NextAuth session security is enough for MVP.",
+    "routes": [],
+    "apiPaths": [],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": ["admin_totp_recovery_codes"],
+    "files": [
+      "src/services/admin-totp-recovery-codes.service.ts",
+      "src/db/schema/admin-totp-recovery-codes.schema.ts"
+    ]
+  },
+  {
+    "id": "bulk-data-ops",
+    "label": "Bulk Data Operations",
+    "description": "Bulk field mapping + data migration + catalog import/export. Manual SQL is enough for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/bulk-data", "/api/v1/admin/catalog", "/api/v1/admin/catalog-import", "/api/v1/admin/data-migration"],
+    "adminPaths": [
+      "/admin/bulk-data-operations",
+      "/admin/bulk-data-field-mapping",
+      "/admin/bulk-seo-editor",
+      "/admin/data-migration-mapping",
+      "/admin/catalog-import-sync",
+      "/admin/catalog-export",
+      "/admin/export-configurator"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": [
+      "/admin/bulk-data-operations",
+      "/admin/catalog-import-sync",
+      "/admin/bulk-seo-editor",
+      "/admin/catalog-export",
+      "/admin/export-configurator",
+      "/admin/data-migration-mapping"
+    ],
+    "workers": [],
+    "schemas": ["catalog_export_jobs"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/bulk-data-operations",
+      "src/app/(admin)/(authenticated)/admin/bulk-data-field-mapping",
+      "src/app/(admin)/(authenticated)/admin/bulk-seo-editor",
+      "src/app/(admin)/(authenticated)/admin/data-migration-mapping",
+      "src/app/(admin)/(authenticated)/admin/catalog-import-sync",
+      "src/app/(admin)/(authenticated)/admin/catalog-export",
+      "src/app/(admin)/(authenticated)/admin/export-configurator",
+      "src/services/admin-bulk-data.service.ts",
+      "src/services/admin-bulk-data-field-mapping.service.ts",
+      "src/services/admin-bulk-seo.service.ts",
+      "src/services/admin-catalog-export.service.ts",
+      "src/services/admin-catalog-import-preview.service.ts",
+      "src/services/admin-data-migration-mapping.service.ts",
+      "src/services/admin/data-migration-mapping-admin.service.ts",
+      "src/db/schema/catalog-export.schema.ts",
+      "src/lib/data-migration-pipeline-rules.ts"
+    ]
+  },
+  {
+    "id": "media-library",
+    "label": "Admin Media Library",
+    "description": "Centralized image/asset management UI. Use Vercel Blob/R2 directly.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/media-library"],
+    "adminPaths": ["/admin/media-library"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/media-library"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/media-library",
+      "src/services/admin-media-library.service.ts",
+      "src/services/admin-media-library-api.service.ts"
+    ]
+  },
+  {
+    "id": "supplier-portal",
+    "label": "Supplier/Partner Portal",
+    "description": "Supplier self-onboarding landing page. Schema-only aspirational feature.",
+    "routes": ["/partner", "/partner/(.*)"],
+    "apiPaths": [],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(public)/partner",
+      "src/services/supplier-partner-overview.service.ts"
+    ]
+  },
+  {
+    "id": "supplier-payouts",
+    "label": "Supplier Payouts & Withdrawals",
+    "description": "Supplier payout tracking + withdrawal flows. Platform is lead-gen only — no money movement until billing infra is live.",
+    "routes": [],
+    "apiPaths": [
+      "/api/v1/admin/supplier-payouts",
+      "/api/v1/admin/suppliers/payouts"
+    ],
+    "adminPaths": [
+      "/admin/suppliers/withdrawals",
+      "/admin/suppliers/payouts",
+      "/admin/supplier-withdrawals"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/suppliers/withdrawals"],
+    "workers": [],
+    "schemas": ["supplier_payout_requests"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/suppliers/withdrawals",
+      "src/app/(admin)/(authenticated)/admin/suppliers/payouts",
+      "src/app/(admin)/(authenticated)/admin/supplier-withdrawals",
+      "src/app/api/v1/admin/suppliers/payouts",
+      "src/services/supplier-payout.service.ts"
+    ]
+  },
+  {
+    "id": "supplier-analytics",
+    "label": "Supplier Analytics, Scorecard & Performance Matrix",
+    "description": "Overlapping admin dashboards (analytics + scorecard + benchmark + performance-matrix). Lead-gen MVP only needs the core supplier list — these are nice-to-have reporting surfaces.",
+    "routes": [],
+    "apiPaths": [
+      "/api/v1/admin/suppliers/analytics",
+      "/api/v1/admin/suppliers/scorecard",
+      "/api/v1/admin/suppliers/performance-matrix",
+      "/api/v1/admin/suppliers/insights"
+    ],
+    "adminPaths": [
+      "/admin/suppliers/analytics",
+      "/admin/suppliers/scorecard",
+      "/admin/suppliers/performance-matrix"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/suppliers/analytics"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/suppliers/analytics",
+      "src/app/(admin)/(authenticated)/admin/suppliers/scorecard",
+      "src/app/(admin)/(authenticated)/admin/suppliers/performance-matrix",
+      "src/app/api/v1/admin/suppliers/analytics",
+      "src/app/api/v1/admin/suppliers/scorecard",
+      "src/app/api/v1/admin/suppliers/performance-matrix",
+      "src/app/api/v1/admin/suppliers/insights",
+      "src/services/admin-supplier-analytics.service.ts"
+    ]
+  },
+  {
+    "id": "supplier-compliance",
+    "label": "Supplier Compliance",
+    "description": "Supplier compliance/KYC tracking UI. Legal layer belongs to Phase 20+, premature for MVP lead-gen flow.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/suppliers/compliance"],
+    "adminPaths": ["/admin/suppliers/compliance"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/suppliers/compliance"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/suppliers/compliance",
+      "src/app/api/v1/admin/suppliers/compliance",
+      "src/services/admin-supplier-compliance.service.ts"
+    ]
+  },
+  {
+    "id": "supplier-onboarding",
+    "label": "Supplier Onboarding Wizard",
+    "description": "Multi-step onboarding flow for supplier self-signup. Suppliers are sourced via crawler, not self-registered — wizard is premature.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/suppliers/onboarding"],
+    "adminPaths": ["/admin/suppliers/onboarding"],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/suppliers/onboarding",
+      "src/app/api/v1/admin/suppliers/onboarding"
+    ]
+  },
+  {
+    "id": "extra-activity-views",
+    "label": "Activity Log / Timeline / Audit Trail Views",
+    "description": "Extra read-only UIs (user activity logs, activity timeline, audit trail page) that duplicate /admin/audit-log. Core audit_log table is kept.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/user-activity-logs", "/api/v1/admin/activity-timeline"],
+    "adminPaths": ["/admin/activity-logs", "/admin/activity-timeline", "/admin/audit-trail"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/activity-logs", "/admin/activity-timeline"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/activity-logs",
+      "src/app/(admin)/(authenticated)/admin/activity-timeline",
+      "src/app/(admin)/(authenticated)/admin/audit-trail",
+      "src/app/api/v1/admin/user-activity-logs",
+      "src/app/api/v1/admin/activity-timeline",
+      "src/services/user-activity-logs.service.ts",
+      "src/services/admin-activity-timeline.service.ts"
+    ]
+  },
+  {
+    "id": "auth-log-viewer",
+    "label": "Auth Security Log Viewer",
+    "description": "Admin UI for auth_security_events. The table + writer service stay core (login flow writes to it). Only the read-only viewer UI is removable.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/auth-security-events"],
+    "adminPaths": ["/admin/security/auth-log"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/security/auth-log"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/security/auth-log",
+      "src/app/api/v1/admin/auth-security-events"
+    ]
+  },
+  {
+    "id": "security-settings-page",
+    "label": "Dedicated Security Settings Page",
+    "description": "Separate /admin/security/settings UI. Redundant with /admin/settings and /admin/system/platform-settings.",
+    "routes": [],
+    "apiPaths": [],
+    "adminPaths": ["/admin/security/settings"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/security/settings"],
+    "workers": [],
+    "schemas": [],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/security/settings"
+    ]
+  },
+  {
+    "id": "system-integrations",
+    "label": "System Integrations Panel",
+    "description": "Third-party integrations registry + health events. Vercel Marketplace / env vars cover this for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/system/integrations"],
+    "adminPaths": ["/admin/system/integrations"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/system/integrations"],
+    "workers": [],
+    "schemas": ["system_integrations", "system_integration_health_events"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system/integrations",
+      "src/app/api/v1/admin/system/integrations"
+    ]
+  },
+  {
+    "id": "system-logs-viewer",
+    "label": "In-App System Logs Viewer",
+    "description": "Technical log viewer backed by system_technical_logs. Use Vercel/Grafana logs instead for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/system/logs"],
+    "adminPaths": ["/admin/system/logs"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/system/logs"],
+    "workers": [],
+    "schemas": ["system_technical_logs"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system/logs",
+      "src/app/api/v1/admin/system/logs"
+    ]
+  },
+  {
+    "id": "system-preferences",
+    "label": "System Preferences & Platform Settings UI",
+    "description": "Regional preferences, tax regions, and platform app-settings singletons. Overlaps with /admin/settings. Not needed until Phase 2.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/system/preferences", "/api/v1/admin/system/app-settings"],
+    "adminPaths": ["/admin/system/preferences", "/admin/system/platform-settings"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/system/preferences", "/admin/system/platform-settings"],
+    "workers": [],
+    "schemas": ["platform_app_settings", "platform_regional_preferences", "platform_tax_regions"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system/preferences",
+      "src/app/(admin)/(authenticated)/admin/system/platform-settings",
+      "src/app/api/v1/admin/system/preferences",
+      "src/app/api/v1/admin/system/app-settings"
+    ]
+  },
+  {
+    "id": "system-update-log",
+    "label": "System Update / Release Log",
+    "description": "In-app changelog of platform releases. Git log + GitHub Releases cover this for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/system/releases"],
+    "adminPaths": ["/admin/system/update-log"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/system/update-log"],
+    "workers": [],
+    "schemas": ["system_release_entries"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system/update-log",
+      "src/app/api/v1/admin/system/releases"
+    ]
+  },
+  {
+    "id": "system-maintenance-mode",
+    "label": "Maintenance Mode UI",
+    "description": "Admin-controlled maintenance banner + public /api/v1/public/maintenance flag. Vercel deployment-level maintenance is enough for MVP.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/system/maintenance", "/api/v1/public/maintenance"],
+    "adminPaths": ["/admin/system/maintenance"],
+    "navKeys": [],
+    "adminNavHrefs": ["/admin/system/maintenance"],
+    "workers": [],
+    "schemas": ["system_maintenance_config"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/system/maintenance",
+      "src/app/api/v1/admin/system/maintenance",
+      "src/app/api/v1/public/maintenance"
+    ]
+  },
+  {
+    "id": "vertex-ai-images",
+    "label": "Vertex AI Image Generation",
+    "description": "Generate product images using Gemini 3.1 Flash Image (Nano Banana 2). Disable to skip AI image generation and use only scraped images.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/generated-media"],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": ["image_generation"],
+    "schemas": ["generated_media"],
+    "files": [
+      "src/services/image-generation.service.ts",
+      "src/workers/image-generation.worker.ts",
+      "src/db/schema/generated-media.schema.ts",
+      "src/lib/storage/r2.ts"
+    ]
+  },
+  {
+    "id": "vertex-ai-videos",
+    "label": "Vertex AI Video Generation",
+    "description": "Generate product reels/videos using Veo 3.1 Lite. Requires admin approval before publishing.",
+    "routes": [],
+    "apiPaths": ["/api/v1/admin/social/generate-video", "/api/v1/admin/social/approve-video"],
+    "adminPaths": [],
+    "navKeys": [],
+    "adminNavHrefs": [],
+    "workers": ["video_generation"],
+    "schemas": ["generated_media"],
+    "files": [
+      "src/services/video-generation.service.ts",
+      "src/workers/video-generation.worker.ts",
+      "src/app/api/v1/admin/social/generate-video/route.ts",
+      "src/app/api/v1/admin/social/[id]/approve-video/route.ts",
+      "src/components/admin/social/social-video-preview.tsx",
+      "src/components/admin/social/social-video-generation-dialog.tsx"
+    ]
+  },
+  {
+    "id": "crawler-scraping",
+    "label": "Crawler & Scraping",
+    "description": "Product crawler (Alibaba/1688/Made-in-China), supplier discovery pipeline, and all scraping infrastructure. Disable to turn off crawling without deleting code.",
+    "routes": [],
+    "apiPaths": [
+      "/api/v1/admin/crawler",
+      "/api/v1/admin/supplier-discovery"
+    ],
+    "adminPaths": [
+      "/admin/crawler",
+      "/admin/crawler/control",
+      "/admin/crawler/settings",
+      "/admin/crawler/history",
+      "/admin/crawler/diagnostics",
+      "/admin/supplier-discovery",
+      "/admin/jobs/crawler"
+    ],
+    "navKeys": [],
+    "adminNavHrefs": [
+      "/admin/crawler/control",
+      "/admin/supplier-discovery"
+    ],
+    "workers": ["crawler"],
+    "schemas": ["crawler_runs", "raw_products"],
+    "files": [
+      "src/app/(admin)/(authenticated)/admin/crawler",
+      "src/app/(admin)/(authenticated)/admin/supplier-discovery",
+      "src/app/(admin)/(authenticated)/admin/jobs/crawler",
+      "src/app/api/v1/admin/crawler",
+      "src/app/api/v1/admin/supplier-discovery",
+      "src/workers/crawler.worker.ts",
+      "src/services/crawler.service.ts",
+      "src/services/supplier-discovery",
+      "src/services/admin-supplier-discovery-api.service.ts",
+      "src/lib/crawler",
+      "src/components/admin/crawler",
+      "src/components/admin/AdminCrawlerClient.tsx",
+      "src/types/crawler.types.ts",
+      "src/types/admin-crawler.types.ts"
+    ]
+  }
+]
