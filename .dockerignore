@@ -1,0 +1,50 @@
+# Source control / CI
+.git
+.gitignore
+.github
+
+# Build artifacts (rebuilt inside the image)
+node_modules
+.next
+dist-workers
+.npm
+tsconfig.tsbuildinfo
+
+# Secrets — never send to the container registry or build context
+.env
+.env.*
+!.env.example
+*.pem
+
+# Docs / planning / AI-agent files — not part of the runtime image
+*.md
+*.doc
+*.pdf
+*.txt~
+**/CLAUDE.md
+**/.cursorrules
+.claude/
+.cursor/
+.commandcode/
+
+# Logs
+*.log
+
+# Data / scratch / binary assets
+*.xlsx
+*.xls
+*.zip
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+test-slug*.ts
+*.scratch.ts
+
+# Local tooling
+.vscode/
+.idea/
+
+# OS
+.DS_Store

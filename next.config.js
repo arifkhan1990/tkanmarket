@@ -33,6 +33,9 @@ const pkg = require('./package.json')
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Containerized output (Cloud Run): produces .next/standalone for a minimal,
+  // self-contained server image.
+  output: 'standalone',
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version
   },
