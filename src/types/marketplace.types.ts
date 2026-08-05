@@ -22,6 +22,10 @@ export interface FabricSummary {
   sku?: string | null
   /** Optional engagement score (0–100); used for home card rating when set */
   socialScore?: number | null
+  /** Whether the fabric has an AI-generated video */
+  hasVideo: boolean
+  /** Thumbnail URL for the AI-generated video */
+  thumbnailUrl: string | null
 }
 
 export interface SupplierCatalogPreview {
@@ -82,6 +86,10 @@ export interface FabricDetail extends FabricSummary {
   viewsCount: number
   composition: Array<{ material: string; percentage: number }> | null
   images: string[]
+  /** AI-generated video URL (completed) */
+  videoUrl: string | null
+  /** Thumbnail URL for the AI-generated video */
+  videoThumbnailUrl: string | null
   supplier: {
     id: number
     name: string

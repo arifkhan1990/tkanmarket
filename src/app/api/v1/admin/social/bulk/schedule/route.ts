@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
     const updated = await SocialPublisherService.scheduleMany({
       postIds: parsed.post_ids,
       scheduledAt: new Date(parsed.scheduled_at),
-      actorUserId: userId
+      actorUserId: userId,
+      timezone: parsed.timezone
     })
     return apiSuccess({ updated })
   } catch (err) {

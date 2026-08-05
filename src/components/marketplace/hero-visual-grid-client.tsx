@@ -254,6 +254,8 @@ export function HeroVisualGridClient({
       supplyTypeEn: null,
       shipmentTime: null,
       shipmentTimeEn: null,
+      hasVideo: false,
+      thumbnailUrl: null,
     })
   }
 

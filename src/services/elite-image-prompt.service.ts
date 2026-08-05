@@ -204,7 +204,7 @@ export class EliteImagePromptService {
         type: 'fabricRoll',
         label: 'Fabric Roll Shot',
         prompt: buildPrompt(
-          'Commercial product catalog photography of a massive, perfectly rolled luxury textile bolt of {{PRODUCT_NAME}}, standing vertically in a high-end photographic studio. Fabric color and visual characteristics: {{FINAL_COLOR}}. High-fidelity close-up capturing the exact {{WEIGHT}} g/m² texture structure and fiber density, perfectly rendering the unique surface details, weaves, or embellishments — {{DESIGN_DETAIL}}. Shot with a Hasselblad H6D-100c, 100mm macro lens, f/8 aperture for deep field of view. Studio cyclorama background, crisp lighting with a soft bounce card to accentuate the natural material finish, photorealistic, 8k resolution, immaculate detail.',
+          'Commercial product catalog photography of luxury textile bolts of {{PRODUCT_NAME}}, standing vertically in a high-end photographic studio. If the reference raw image contains a stack or arrangement of different color cut swatches, the fabric rolls MUST be arranged in the exact same color and content sequence as the raw swatch stack (featuring {{FINAL_COLOR}}). High-fidelity close-up capturing the exact {{WEIGHT}} g/m² texture structure and fiber density, perfectly rendering the unique surface details, weaves, or embellishments — {{DESIGN_DETAIL}}. Shot with a Hasselblad H6D-100c, 100mm macro lens, f/8 aperture for deep field of view. Studio cyclorama background, crisp lighting with a soft bounce card to accentuate the natural material finish, photorealistic, 8k resolution, immaculate detail.',
           ctx
         ),
         count: 1

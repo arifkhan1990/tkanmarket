@@ -219,6 +219,12 @@ export function FabricEditForm({ fabric }: { fabric: AdminFabricDetail }) {
             fabricTitle={fabric.title_ru}
             onGenerationStarted={() => setVideoStarted(true)}
           />
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/admin/social/fabrics/${fabric.id}`}>
+              <Film className="h-4 w-4" aria-hidden />
+              {messages.admin.fabricEdit.socialContent}
+            </Link>
+          </Button>
           {fabric.status === 'approved' ? (
             <Button asChild variant="outline">
               <Link href={`/fabrics/${encodeURIComponent(fabric.slug)}`} target="_blank">

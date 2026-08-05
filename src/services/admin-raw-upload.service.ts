@@ -391,12 +391,15 @@ export class AdminRawUploadService {
   }
 
   private static async normalizeRow(rowData: Record<string, unknown>): Promise<Record<string, unknown> | null> {
-    const tr = rowData['titleRu']
-    const trRu = rowData['title_ru']
-    const titleRu = (typeof tr === 'string' ? tr : typeof trRu === 'string' ? trRu : null) ?? null
-    if (!titleRu || String(titleRu).trim().length === 0) return null
-
+    const tr = rowData['titleRu'] ?? rowData['title_ru'] ?? rowData['rawTitle'] ?? rowData['raw_title']
     const te = rowData['titleEn'] ?? rowData['title_en']
+    const titleRu = (typeof tr === 'string' && tr.trim().length > 0 ? tr.trim() : null)
+    const titleEn = (typeof te === 'string' && te.trim().length > 0 ? te.trim() : null)
+    const rawTitle = titleRu ?? titleEn
+
+    if (!rawTitle) {
+      throw new Error('Missing mandatory raw product title (rawTitle/titleRu/titleEn). Please provide a product title before enqueuing for AI processing.')
+    }
     const rawDesc = rowData['rawDescription'] ?? rowData['raw_description']
     const descRu = rowData['descriptionRu'] ?? rowData['description_ru']
     const descEn = rowData['descriptionEn'] ?? rowData['description_en']

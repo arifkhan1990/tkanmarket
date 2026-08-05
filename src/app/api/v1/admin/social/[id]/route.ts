@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { apiSuccess } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
-import { NotFoundError } from '@/lib/errors'
+import { NotFoundError, AuthError } from '@/lib/errors'
 import { requireAdminSession } from '@/lib/auth/require-admin'
 import { SocialAdminService } from '@/services/admin/social-admin.service'
 
@@ -32,16 +32,19 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await requireAdminSession()
+    const session = await requireAdminSession()
     const params = ParamsSchema.parse(await context.params)
     const body = PatchBodySchema.parse(await req.json().catch(() => ({})))
 
+    const userId = session.user.id ? Number(session.user.id) : NaN
+    if (!Number.isFinite(userId)) throw new AuthError('Invalid session user id')
+
     if (body.caption_text !== undefined) {
-      await SocialAdminService.updateCaption(params.id, body.caption_text)
+      await SocialAdminService.updateCaption(params.id, body.caption_text, userId)
     }
     if (body.hashtags !== undefined) {
       const cleaned = body.hashtags.map((h) => h.trim()).filter((h) => h.length > 0)
-      await SocialAdminService.updateHashtags(params.id, cleaned)
+      await SocialAdminService.updateHashtags(params.id, cleaned, userId)
     }
 
     const row = await SocialAdminService.getById(params.id)

@@ -60,10 +60,28 @@ async function loadAiContentStatus(ids: number[]): Promise<Map<number, FabricAiC
     db
       .select({ fabricId: generatedMedia.fabricId, socialPostId: generatedMedia.socialPostId })
       .from(generatedMedia)
-      .where(and(inArray(generatedMedia.fabricId, ids), eq(generatedMedia.type, 'video'), isNull(generatedMedia.deletedAt)))
+      .leftJoin(socialPosts, eq(generatedMedia.socialPostId, socialPosts.id))
+      .where(
+        and(
+          inArray(generatedMedia.fabricId, ids),
+          eq(generatedMedia.type, 'video'),
+          isNull(generatedMedia.deletedAt),
+          // Never link the video button to a soft-deleted social post — that
+          // would open a preview page that 404s.
+          or(isNull(generatedMedia.socialPostId), isNull(socialPosts.deletedAt))
+        )
+      )
       .orderBy(desc(generatedMedia.createdAt)),
     db
-      .select({ fabricId: socialPosts.fabricId, id: socialPosts.id, status: socialPosts.status })
+      .select({
+        fabricId: socialPosts.fabricId,
+        id: socialPosts.id,
+        status: socialPosts.status,
+        captionText: socialPosts.captionText,
+        scriptText: socialPosts.scriptText,
+        platformMetadata: socialPosts.platformMetadata,
+        revisionNumber: socialPosts.revisionNumber
+      })
       .from(socialPosts)
       .where(and(inArray(socialPosts.fabricId, ids), isNull(socialPosts.deletedAt)))
       .orderBy(desc(socialPosts.createdAt))
@@ -89,6 +107,9 @@ async function loadAiContentStatus(ids: number[]): Promise<Map<number, FabricAiC
     if (s.video_post_id == null && r.socialPostId != null) s.video_post_id = r.socialPostId
   }
 
+  const fallbackSocialPostId = new Map<number, number>()
+  const bestContentPost = new Map<number, { id: number; revisionNumber: number }>()
+
   for (const r of socialRows) {
     if (r.fabricId == null) continue
     const s = map.get(r.fabricId)
@@ -96,10 +117,32 @@ async function loadAiContentStatus(ids: number[]): Promise<Map<number, FabricAiC
     if (r.status === 'VIDEO_PENDING') {
       s.has_video = true
       if (s.video_post_id == null) s.video_post_id = r.id
-    } else {
-      s.has_social = true
-      if (s.social_post_id == null) s.social_post_id = r.id
+      continue
     }
+    s.has_social = true
+    // Prefer the newest post that actually carries content (caption/script/
+    // metadata). Bare drafts created by the video flow must not become the
+    // "social" preview link — they show a video but no social copy. Among
+    // content-bearing posts, prefer the highest revision number.
+    const hasContent = Boolean(r.captionText?.trim()) || Boolean(r.scriptText?.trim()) || Boolean(r.platformMetadata)
+    if (hasContent) {
+      const best = bestContentPost.get(r.fabricId)
+      if (best == null || (r.revisionNumber ?? 1) > best.revisionNumber) {
+        bestContentPost.set(r.fabricId, { id: r.id, revisionNumber: r.revisionNumber ?? 1 })
+      }
+    } else if (!fallbackSocialPostId.has(r.fabricId)) {
+      fallbackSocialPostId.set(r.fabricId, r.id)
+    }
+  }
+
+  for (const [fabricId, best] of bestContentPost) {
+    const s = map.get(fabricId)
+    if (s && s.social_post_id == null) s.social_post_id = best.id
+  }
+
+  for (const [fabricId, postId] of fallbackSocialPostId) {
+    const s = map.get(fabricId)
+    if (s && s.social_post_id == null) s.social_post_id = postId
   }
 
   return map

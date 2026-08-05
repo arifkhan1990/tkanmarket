@@ -6,12 +6,13 @@ import { fabrics } from '@/db/schema/fabrics.schema'
 import { fabricActivityLog } from '@/db/schema/fabric-activity-log.schema'
 import { SOCIAL_PLATFORM } from '@/constants'
 import { callGemini } from '@/lib/google/client'
+import { fetchImagesAsInlineData } from '@/services/image-generation.service'
 import { buildFabricEnrichmentPrompt } from '@/lib/google/prompts/fabric-enrichment'
 import { buildFabricTranslationPrompt } from '@/lib/google/prompts/fabric-translation'
 import { logger } from '@/lib/logger'
 import { TextPromptRuleService } from '@/services/admin/text-prompt-rule.service'
 
-import type { AIProcessedProduct, AIProcessingResult, RawFabric, SocialContent, SocialContentShared } from '@/types/ai.types'
+import type { AIProcessedProduct, AIProcessingResult, RawFabric, SocialContent, SocialContentByPlatform, SocialContentShared } from '@/types/ai.types'
 import type { CarouselSlide } from '@/types/ai.types'
 import type { SocialPlatform } from '@/types/queue.types'
 import type { FabricCompositionItem } from '@/types/fabric'
@@ -56,6 +57,15 @@ const TranslationResultSchema = z.object({
 
 function clamp01(n: number) {
   return Math.max(0, Math.min(1, n))
+}
+
+function parsePriceNumeric(val: string | null | undefined): string | null {
+  if (!val) return null
+  const match = String(val).match(/(\d+(?:\.\d+)?)/)
+  if (!match || !match[1]) return null
+  const num = parseFloat(match[1])
+  if (isNaN(num) || num <= 0) return null
+  return num.toFixed(2)
 }
 
 function normalizeTags(tags: string[]): string[] {
@@ -236,8 +246,9 @@ export class AIService {
         rawDescription: rawRow.rawDescription ?? ''
       })
       const userContent = TextPromptRuleService.substituteVariables(textPromptRule.enrichmentUserTemplate, vars)
+      const strictSuffix = '\n\nMANDATORY REQUIREMENT: You MUST generate non-null title_en, description_en, usage_en, tags_en, meta_title_en, meta_description_en, and image_alt_en. If raw product info is brief, compose professional B2B catalog content based on the fabric_type and gsm.'
       messages = [
-        { role: 'system' as const, content: textPromptRule.enrichmentSystemPrompt },
+        { role: 'system' as const, content: (textPromptRule.enrichmentSystemPrompt ?? '') + strictSuffix },
         { role: 'user' as const, content: userContent }
       ]
     } else {
@@ -261,11 +272,14 @@ export class AIService {
       messages = buildFabricEnrichmentPrompt(rawProduct)
     }
 
+    const rawInlineImages = await fetchImagesAsInlineData(rawRow.images)
+
     const enText = await callGemini(messages, {
       model: 'gemini-3.6-flash',
       responseFormat: 'json_object',
       maxRetries: 3,
-      context: { source: 'enrichment', fabricId }
+      context: { source: 'enrichment', fabricId },
+      inlineImages: rawInlineImages
     })
 
     let enJson: unknown
@@ -276,10 +290,64 @@ export class AIService {
     }
 
     const enriched = EnrichedProductSchema.parse(enJson)
+    const fabricType = enriched.fabric_type ?? rawRow.fabricType ?? 'Textile Fabric'
+    const gsm = enriched.gsm ?? rawRow.gsm ?? null
+    const colorEn = enriched.color_en ?? rawRow.color ?? 'Multicolor'
+    const supplyTypeEn = enriched.supply_type_en ?? rawRow.supplyType ?? 'In stock in China'
+    
+    // Smart Title Synthesis if null
+    const generatedTitle = `${colorEn !== 'Multicolor' ? colorEn + ' ' : ''}Premium ${fabricType}${gsm ? ` (${gsm} GSM)` : ''}`
+    const titleEn = enriched.title_en ?? rawRow.titleEn ?? rawRow.titleRu ?? generatedTitle
+
+    // Smart Description Synthesis if null
+    const generatedDesc = `High-quality B2B ${fabricType.toLowerCase()} fabric${gsm ? ` with a weight of ${gsm} GSM` : ''}. Featuring excellent texture, drape, and durability, perfect for fashion garments, apparel production, and commercial textile projects.`
+    const descriptionEn = enriched.description_en ?? rawRow.descriptionEn ?? rawRow.descriptionRu ?? generatedDesc
+
+    // Smart Usage Synthesis if null
+    const generatedUsage = `Apparel Production, Fashion Garments, Commercial Textiles, ${fabricType} Products`
+    const usageEn = enriched.usage_en ?? generatedUsage
+
+    // Smart SEO fields if null
+    const metaTitleEn = enriched.meta_title_en ?? `${titleEn} | Wholesale B2B Fabric`
+    const metaDescriptionEn = enriched.meta_description_en ?? descriptionEn.slice(0, 155)
+    const imageAltEn = enriched.image_alt_en ?? titleEn
+
+    // Smart Tags Synthesis if null or empty
+    const defaultTags = [
+      fabricType.toLowerCase(),
+      `${fabricType.toLowerCase()} fabric`,
+      colorEn.toLowerCase(),
+      'textile',
+      'wholesale',
+      'b2b fabric'
+    ]
+    const tagsEn = normalizeTags(
+      enriched.tags_en && enriched.tags_en.length > 0
+        ? enriched.tags_en
+        : (rawRow.tags && rawRow.tags.length > 0 ? rawRow.tags : defaultTags)
+    )
+
     const enNormalized = {
       ...enriched,
-      tags_en: normalizeTags(enriched.tags_en ?? []),
-      image_urls: enriched.image_urls ?? []
+      title_en: titleEn,
+      description_en: descriptionEn,
+      fabric_type: fabricType,
+      gsm,
+      width_cm: enriched.width_cm ?? 150,
+      moq: enriched.moq ?? 300,
+      price_usd: enriched.price_usd ?? null,
+      composition: (enriched.composition && enriched.composition.length > 0)
+        ? enriched.composition
+        : ((rawRow.composition as FabricCompositionItem[] | null) ?? [{ material: fabricType, percentage: 100 }]),
+      color_en: colorEn,
+      supply_type_en: supplyTypeEn,
+      shipment_time_en: enriched.shipment_time_en ?? '15-20 days',
+      usage_en: usageEn,
+      meta_title_en: metaTitleEn,
+      meta_description_en: metaDescriptionEn,
+      image_alt_en: imageAltEn,
+      tags_en: tagsEn,
+      image_urls: enriched.image_urls && enriched.image_urls.length > 0 ? enriched.image_urls : (Array.isArray(rawRow.images) ? rawRow.images : [])
     }
 
     /* ── Step 2: Translate English → Russian ──────── */
@@ -312,32 +380,44 @@ export class AIService {
     }
 
     const translation = TranslationResultSchema.parse(ruJson)
+    const ruNormalized = {
+      title_ru: translation.title_ru ?? enNormalized.title_en ?? null,
+      description_ru: translation.description_ru ?? enNormalized.description_en ?? null,
+      usage_ru: translation.usage_ru ?? enNormalized.usage_en ?? null,
+      meta_title_ru: translation.meta_title_ru ?? translation.title_ru ?? enNormalized.meta_title_en ?? null,
+      meta_description_ru: translation.meta_description_ru ?? translation.description_ru ?? enNormalized.meta_description_en ?? null,
+      image_alt_ru: translation.image_alt_ru ?? translation.title_ru ?? enNormalized.image_alt_en ?? null,
+      tags: translation.tags && translation.tags.length > 0 ? translation.tags : enNormalized.tags_en,
+      color: translation.color ?? enNormalized.color_en ?? null,
+      supply_type: translation.supply_type ?? enNormalized.supply_type_en ?? null,
+      shipment_time: translation.shipment_time ?? enNormalized.shipment_time_en ?? null
+    }
 
     /* ── Step 3: Combine into AIProcessedProduct ──── */
 
     const combined: AIProcessedProduct = {
       title_en: enNormalized.title_en,
       description_en: enNormalized.description_en,
-      title_ru: translation.title_ru,
-      description_ru: translation.description_ru,
-      meta_title_ru: translation.meta_title_ru,
-      meta_description_ru: translation.meta_description_ru,
+      title_ru: ruNormalized.title_ru,
+      description_ru: ruNormalized.description_ru,
+      meta_title_ru: ruNormalized.meta_title_ru,
+      meta_description_ru: ruNormalized.meta_description_ru,
       fabric_type: enNormalized.fabric_type,
       gsm: enNormalized.gsm,
       width_cm: enNormalized.width_cm,
       moq: enNormalized.moq,
       price_usd: enNormalized.price_usd,
       composition: enNormalized.composition,
-      tags: normalizeTags(translation.tags ?? []),
+      tags: normalizeTags(ruNormalized.tags ?? []),
       image_urls: enNormalized.image_urls,
-      color: translation.color,
-      supply_type: translation.supply_type,
-      shipment_time: translation.shipment_time,
-      usage_ru: translation.usage_ru,
+      color: ruNormalized.color,
+      supply_type: ruNormalized.supply_type,
+      shipment_time: ruNormalized.shipment_time,
+      usage_ru: ruNormalized.usage_ru,
       usage_en: enNormalized.usage_en,
       meta_title_en: enNormalized.meta_title_en,
       meta_description_en: enNormalized.meta_description_en,
-      image_alt_ru: translation.image_alt_ru,
+      image_alt_ru: ruNormalized.image_alt_ru,
       image_alt_en: enNormalized.image_alt_en,
       tags_en: enNormalized.tags_en,
       color_en: enNormalized.color_en,
@@ -371,7 +451,7 @@ export class AIService {
             gsm: combined.gsm,
             widthCm: combined.width_cm,
             moq: combined.moq,
-            priceUsd: combined.price_usd as never,
+            priceUsd: parsePriceNumeric(combined.price_usd),
             composition: toComposition(combined.composition) as never,
             tags: combined.tags,
             tagsEn: combined.tags_en,
@@ -764,6 +844,194 @@ export class AIService {
       reelScript: parsed.reel_script ?? shared.reelScript,
       recommendedPostingTime: parsed.recommended_posting_time ?? shared.recommendedPostingTime
     }
+  }
+
+  public static async generateSocialContentAll(fabricId: number): Promise<SocialContentByPlatform> {
+    const db = getDb()
+    const rows = await db
+      .select({
+        id: fabrics.id,
+        titleRu: fabrics.titleRu,
+        titleEn: fabrics.titleEn,
+        descriptionRu: fabrics.descriptionRu,
+        descriptionEn: fabrics.descriptionEn,
+        tags: fabrics.tags,
+        images: fabrics.images,
+        sourceUrl: fabrics.sourceUrl,
+        fabricType: fabrics.fabricType,
+        color: fabrics.color,
+        gsm: fabrics.gsm,
+        widthCm: fabrics.widthCm,
+        moq: fabrics.moq,
+        priceUsd: fabrics.priceUsd,
+        composition: fabrics.composition,
+        usageRu: fabrics.usageRu,
+        usageEn: fabrics.usageEn,
+        supplyType: fabrics.supplyType
+      })
+      .from(fabrics)
+      .where(and(eq(fabrics.id, fabricId), isNull(fabrics.deletedAt)))
+      .limit(1)
+
+    const f = rows[0]
+    if (!f) throw new Error('Fabric not found')
+
+    const compStr = Array.isArray(f.composition) && f.composition.length > 0
+      ? (f.composition as FabricCompositionItem[]).map((c) => `${c.material} ${c.percentage}%`).join(', ')
+      : ''
+
+    const textPromptRule = await TextPromptRuleService.findMatchingRule({
+      fabricType: f.fabricType,
+      color: f.color,
+      gsm: f.gsm,
+      supplyType: f.supplyType
+    })
+
+    const allPlatformHint = [
+      '',
+      'Generate complete, publish-ready social media content for ALL FIVE platforms in ONE JSON response.',
+      'Every platform block below is REQUIRED and must contain EVERY field — do not omit or null any of them:',
+      '- caption: a complete ready-to-publish English caption with a strong opening hook, technical specs summary, and a clear B2B call to action (required)',
+      '- hashtags: at least 8-15 relevant English B2B textile hashtags, adapted to the platform (required)',
+      '- post_title: a catchy English post headline/hook (required)',
+      '- call_to_action: clear B2B CTA (required)',
+      '- specifications_summary: formatted block of Composition, GSM, Width, MOQ, Price (required)',
+      '- key_features: 3-4 bullet points of fabric benefits (required)',
+      '- target_audience: intended buyer demographic (required)',
+      '- image_prompt: an AI image generation prompt for the post image / video thumbnail, adapted to the platform aspect ratio (required)',
+      '- image_overlay_text: short text graphic overlay (required)',
+      '- carousel_slides: array of slide concepts (required, 0-5 items)',
+      '- reel_script: a DETAILED scene-by-scene video script with scene timings in seconds, camera moves, transitions, and on-screen text (required, never null)',
+      '- recommended_posting_time: suggested posting time (required)'
+    ].join('\n')
+
+    const platformListHint = [...SOCIAL_PLATFORM].map((p) => `  "${p}": { ...full social media content block... }`).join('\n')
+
+    let messages
+    if (textPromptRule?.socialSystemPrompt && textPromptRule?.socialUserTemplate) {
+      const vars = TextPromptRuleService.buildFabricVariables({
+        titleEn: f.titleEn,
+        titleRu: f.titleRu,
+        fabricType: f.fabricType,
+        color: f.color,
+        tags: (f.tags ?? []).join(', '),
+        supplyType: f.supplyType,
+        descriptionEn: f.descriptionEn,
+        descriptionRu: f.descriptionRu,
+        sourceUrl: f.sourceUrl
+      })
+      const userContent = TextPromptRuleService.substituteVariables(textPromptRule.socialUserTemplate, vars)
+      messages = [
+        { role: 'system' as const, content: textPromptRule.socialSystemPrompt },
+        { role: 'user' as const, content: `${userContent}\n${allPlatformHint}\n\nRespond with a single JSON object keyed by platform:\n{\n${platformListHint}\n}` }
+      ]
+    } else {
+      messages = [
+        {
+          role: 'system' as const,
+          content:
+            'You are a master social media copywriter and content strategist for TkanMarket, a premier B2B fabric sourcing marketplace connecting textile suppliers with international garment manufacturers, fashion brands, ateliers, and textile wholesalers. ALL CONTENT MUST BE STRICTLY WRITTEN IN ENGLISH ONLY. Generate complete, highly engaging, professional social media post data for EVERY platform (INSTAGRAM, TIKTOK, PINTEREST, FACEBOOK, YOUTUBE) adapted to each platform\'s style, tone, and best practices. Always respond with valid JSON only.'
+        },
+        {
+          role: 'user' as const,
+          content: [
+            `Title (EN): ${f.titleEn ?? f.titleRu ?? ''}`,
+            `Fabric Type: ${f.fabricType ?? ''}`,
+            `Composition: ${compStr}`,
+            `Weight (GSM): ${f.gsm ? `${f.gsm} g/m²` : ''}`,
+            `Width: ${f.widthCm ? `${f.widthCm} cm` : ''}`,
+            `MOQ: ${f.moq ? `${f.moq} meters` : ''}`,
+            `Price: ${f.priceUsd ? `$${f.priceUsd}/m` : ''}`,
+            `Color: ${f.color ?? ''}`,
+            `Usage: ${f.usageEn ?? f.usageRu ?? ''}`,
+            `Supply Type: ${f.supplyType ?? ''}`,
+            `Description: ${f.descriptionEn ?? f.descriptionRu ?? ''}`,
+            `Tags: ${(f.tags ?? []).join(', ')}`,
+            `Source URL: ${f.sourceUrl ?? ''}`,
+            `Catalog Image Count: ${(f.images ?? []).length}`,
+            '',
+            allPlatformHint,
+            '',
+            'Return a single JSON object with exactly these five keys, each holding a full social media content block:',
+            '{',
+            platformListHint,
+            '}',
+            '',
+            'Each block shape:',
+            '{',
+            '  "post_title": string',
+            '  "caption": string',
+            '  "hashtags": string[]',
+            '  "call_to_action": string',
+            '  "specifications_summary": string',
+            '  "key_features": string[]',
+            '  "target_audience": string',
+            '  "image_prompt": string',
+            '  "image_overlay_text": string',
+            '  "carousel_slides": Array<{ "slide_number": number, "title": string, "image_description": string }>',
+            '  "reel_script": string',
+            '  "recommended_posting_time": string',
+            '}'
+          ].join('\n')
+        }
+      ]
+    }
+
+    const text = await callGemini(messages, {
+      model: 'gemini-3.6-flash',
+      responseFormat: 'json_object',
+      maxRetries: 3,
+      context: { source: 'social', fabricId }
+    })
+    const json = JSON.parse(text) as Record<string, unknown>
+
+    // Parse each platform block independently. If the model returned a flat
+    // (non-per-platform) response, only INSTAGRAM parses and becomes the shared
+    // fallback for the remaining platforms — one call, zero extra requests.
+    type SocialContentPartial = Partial<z.infer<typeof SocialContentSchema>>
+    const blocks: Record<SocialPlatform, SocialContentPartial> = {} as Record<SocialPlatform, SocialContentPartial>
+    const instagramParsed = SocialContentSchema.partial().safeParse(json['INSTAGRAM'])
+    const fallbackBlock: SocialContentPartial = instagramParsed.success ? instagramParsed.data : {}
+    for (const platform of SOCIAL_PLATFORM) {
+      const parsed = SocialContentSchema.partial().safeParse(json[platform])
+      blocks[platform] = parsed.success ? parsed.data : fallbackBlock
+    }
+
+    const fallbackDefaultHashtags = generateDefaultHashtags({
+      fabricType: f.fabricType,
+      color: f.color,
+      tags: f.tags,
+      supplyType: f.supplyType
+    })
+
+    const result = {} as SocialContentByPlatform
+
+    for (const platform of SOCIAL_PLATFORM) {
+      const block = blocks[platform] ?? fallbackBlock
+      const aiHashtags = normalizeTags(block.hashtags ?? [])
+      const hashtags = aiHashtags.length > 0 ? aiHashtags : fallbackDefaultHashtags
+      const carouselSlides = (block.carousel_slides ?? []).map((s) => ({
+        slideNumber: s.slide_number,
+        title: s.title,
+        imageDescription: s.image_description
+      }))
+      result[platform] = {
+        postTitle: block.post_title ?? null,
+        caption: block.caption ?? '',
+        hashtags,
+        callToAction: block.call_to_action ?? null,
+        specificationsSummary: block.specifications_summary ?? null,
+        keyFeatures: block.key_features ?? [],
+        targetAudience: block.target_audience ?? null,
+        imagePrompt: block.image_prompt ?? `Vertical 9:16 cinematic cover shot of ${f.titleEn ?? f.titleRu ?? 'this fabric'}: close-up of the fabric texture and drape in motion, dramatic studio lighting, rich saturated color, premium B2B product showcase.`,
+        imageOverlayText: block.image_overlay_text ?? null,
+        carouselSlides,
+        reelScript: block.reel_script ?? null,
+        recommendedPostingTime: block.recommended_posting_time ?? null
+      }
+    }
+
+    return result
   }
 
   public static async regenerateCarouselSlides(fabricId: number, platform: SocialPlatform, existingContent: SocialContentShared, customPrompt?: string | null): Promise<{ carouselSlides: CarouselSlide[] }> {

@@ -18,11 +18,15 @@ const FALLBACK_PROMPT =
 
 const MAX_REFERENCE_IMAGES = 3
 
-async function fetchImagesAsInlineData(imageUrls: string[] | null): Promise<string[]> {
+export async function fetchImagesAsInlineData(imageUrls: string[] | null): Promise<string[]> {
   if (!imageUrls || imageUrls.length === 0) return []
 
   const valid = filterFabricGalleryImageUrls(imageUrls)
-  const selected = valid.slice(0, MAX_REFERENCE_IMAGES)
+  // Prioritize raw uploaded physical sample images over AI generated ones
+  const rawImages = valid.filter((url) => !url.includes('/generated/'))
+  const selected = rawImages.length > 0
+    ? rawImages.slice(0, MAX_REFERENCE_IMAGES)
+    : valid.slice(0, MAX_REFERENCE_IMAGES)
   const results: string[] = []
 
   for (const url of selected) {
@@ -39,7 +43,14 @@ async function fetchImagesAsInlineData(imageUrls: string[] | null): Promise<stri
 
       if (!response.ok) continue
 
-      const contentType = response.headers.get('content-type') ?? 'image/jpeg'
+      let contentType = response.headers.get('content-type') ?? 'image/jpeg'
+      if (!contentType.startsWith('image/') || contentType.includes('octet-stream')) {
+        const lowerUrl = url.toLowerCase()
+        if (lowerUrl.includes('.png')) contentType = 'image/png'
+        else if (lowerUrl.includes('.webp')) contentType = 'image/webp'
+        else contentType = 'image/jpeg'
+      }
+
       const arrayBuffer = await response.arrayBuffer()
       const base64 = Buffer.from(arrayBuffer).toString('base64')
       results.push(`data:${contentType};base64,${base64}`)
@@ -183,12 +194,14 @@ export class ImageGenerationService {
       const primaryUrl = results[0]?.storageUrl
       if (primaryUrl) {
         const existingImages = fabric.images ?? []
-        const updatedImages = [primaryUrl, ...existingImages.filter((u) => u !== primaryUrl)]
+        const rawImages = existingImages.filter((u) => !u.includes('/generated/'))
+        const prevGenerated = existingImages.filter((u) => u.includes('/generated/') && u !== primaryUrl)
+        const updatedImages = Array.from(new Set([primaryUrl, ...rawImages, ...prevGenerated]))
         await db
           .update(fabrics)
           .set({ images: updatedImages, updatedAt: sql`now()` })
           .where(eq(fabrics.id, fabricId))
-        logger.info('Primary fabric image updated from AI generation', { fabricId, url: primaryUrl })
+        logger.info('Fabric thumbnail updated to 1st AI generated image with raw images preserved', { fabricId, primaryUrl })
       }
     }
 
@@ -246,7 +259,7 @@ export class ImageGenerationService {
       const sourceUri = urls[0] ?? ''
 
       // Vision AI Quality Gate audit
-      const audit = await FabricConsistencyGuardService.verifyImageFidelity(sourceUri, fabric)
+      const audit = await FabricConsistencyGuardService.verifyImageFidelity(sourceUri, { ...fabric, id: fabricId })
       if (!audit.isValid) {
         logger.warn('Fabric consistency audit flagged potential mismatch', { fabricId, mediaId, reason: audit.reason, confidence: audit.confidence })
       }
@@ -397,12 +410,14 @@ export class ImageGenerationService {
 
     if (result.storageUrl) {
       const existingImages = fabric.images ?? []
-      const updatedImages = [result.storageUrl, ...existingImages.filter((u) => u !== result.storageUrl)]
+      const rawImages = existingImages.filter((u) => !u.includes('/generated/'))
+      const prevGenerated = existingImages.filter((u) => u.includes('/generated/') && u !== result.storageUrl)
+      const updatedImages = Array.from(new Set([result.storageUrl, ...rawImages, ...prevGenerated]))
       await db
         .update(fabrics)
         .set({ images: updatedImages, updatedAt: sql`now()` })
         .where(eq(fabrics.id, fabricId))
-      logger.info('Primary fabric image updated from AI generation', { fabricId, url: result.storageUrl })
+      logger.info('Primary fabric image updated from AI generation with raw images preserved', { fabricId, url: result.storageUrl })
     }
 
     return result

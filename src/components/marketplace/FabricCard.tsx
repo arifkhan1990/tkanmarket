@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Building2, Droplets, Package, Ruler, Sparkles, Star } from 'lucide-react'
+import { Building2, Droplets, Package, Ruler, Sparkles, Star, Video } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -64,26 +64,45 @@ export function FabricCard({
         'hover:border-primary/25 hover:shadow-xl'
       )}
     >
-      {/* `group` scoped to media so heart/compare only appear when hovering the image (not the text block). */}
-      <div className="group relative z-[2]">
-        <Link
-          href={fabricHref}
-          className="relative block aspect-[4/3] bg-surface-container-highest outline-offset-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary"
-          aria-label={`${title}. ${messages.fabricCard.details}`}
-        >
-          <Image
-            src={imageSrc}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            unoptimized={isRemoteImageSrc(imageSrc)}
-            priority={priority}
-            fetchPriority={priority ? 'high' : 'auto'}
-            loading={priority ? 'eager' : 'lazy'}
-            aria-hidden
-          />
-        </Link>
+{/* `group` scoped to media so heart/compare only appear when hovering the image (not the text block). */}
+        <div className="group relative z-[2]">
+          <Link
+            href={fabricHref}
+            className="relative block aspect-[4/3] bg-surface-container-highest outline-offset-2 focus-visible:outline focus-visible:ring-2 focus-visible:ring-primary"
+            aria-label={`${title}. ${messages.fabricCard.details}`}
+          >
+            {fabric.hasVideo && fabric.thumbnailUrl ? (
+              <>
+                <video
+                  src={fabric.thumbnailUrl}
+                  poster={fabric.thumbnailUrl}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  muted
+                  playsInline
+                  preload="metadata"
+                  aria-hidden
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                    <Video className="h-5 w-5 text-primary" aria-hidden />
+                  </div>
+                </span>
+              </>
+            ) : (
+              <Image
+                src={imageSrc}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                unoptimized={isRemoteImageSrc(imageSrc)}
+                priority={priority}
+                fetchPriority={priority ? 'high' : 'auto'}
+                loading={priority ? 'eager' : 'lazy'}
+                aria-hidden
+              />
+            )}
+          </Link>
 
         {/* Top: fabric type + rating only (always visible) */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[8] flex items-start justify-between gap-2 p-3">

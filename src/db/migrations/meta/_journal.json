@@ -274,6 +274,41 @@
       "when": 1785641159559,
       "tag": "0039_needy_talkback",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785904449584,
+      "tag": "0040_open_kitty_pryde",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1785905068283,
+      "tag": "0041_silent_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1785906133552,
+      "tag": "0042_flippant_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1785906605661,
+      "tag": "0043_heavy_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1785907698840,
+      "tag": "0044_magical_white_tiger",
+      "breakpoints": true
     }
   ]
 }

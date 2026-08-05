@@ -79,7 +79,18 @@ export class AdminMediaLibraryService {
     const search = params.q?.trim() ?? ''
     const folderSlug = params.folderSlug?.trim() ?? ''
 
-    const conditions: SQL[] = [isNull(fabrics.deletedAt), sql`cardinality(${fabrics.images}) > 0`]
+    const conditions: SQL[] = [
+      isNull(fabrics.deletedAt),
+      or(
+        sql`cardinality(${fabrics.images}) > 0`,
+        sql`EXISTS (
+          SELECT 1 FROM generated_media gm
+          WHERE gm.fabric_id = ${fabrics.id}
+            AND gm.status IN ('COMPLETED', 'SUPERSEDED')
+            AND gm.deleted_at IS NULL
+        )`
+      )!
+    ]
 
     if (search.length > 0) {
       const pattern = `%${search.replace(/[%_]/g, (m) => `\\${m}`)}%`
@@ -179,55 +190,38 @@ export class AdminMediaLibraryService {
       .limit(limit)
       .offset(offset)
 
-    const generatedMediaPromise = db
-      .select({
-        id: generatedMedia.id,
-        fabricId: generatedMedia.fabricId,
-        socialPostId: generatedMedia.socialPostId,
-        type: generatedMedia.type,
-        mediaType: generatedMedia.mediaType,
-        url: generatedMedia.url,
-        thumbnailUrl: generatedMedia.thumbnailUrl,
-        prompt: generatedMedia.prompt,
-        provider: generatedMedia.provider,
-        providerModel: generatedMedia.providerModel,
-        status: generatedMedia.status,
-        durationSeconds: generatedMedia.durationSeconds,
-        aspectRatio: generatedMedia.aspectRatio,
-        fileSizeBytes: generatedMedia.fileSizeBytes,
-        errorMessage: generatedMedia.errorMessage,
-        supersededByMediaId: generatedMedia.supersededByMediaId,
-        adminReviewedAt: generatedMedia.adminReviewedAt,
-        adminReviewerId: generatedMedia.adminReviewerId,
-        adminReviewNotes: generatedMedia.adminReviewNotes,
-        metadata: generatedMedia.metadata,
-        createdAt: generatedMedia.createdAt,
-        updatedAt: generatedMedia.updatedAt,
-        expiresAt: generatedMedia.expiresAt,
-        fabricTitleEn: fabrics.titleEn,
-        fabricTitleRu: fabrics.titleRu,
-        supplierName: suppliers.name
-      })
-      .from(generatedMedia)
-      .leftJoin(fabrics, eq(generatedMedia.fabricId, fabrics.id))
-      .leftJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
-      .where(
-        and(
-          inArray(generatedMedia.status, ['COMPLETED', 'SUPERSEDED']),
-          isNotNull(generatedMedia.url),
-          isNull(generatedMedia.deletedAt)
-        )
-      )
-      .orderBy(desc(generatedMedia.createdAt))
-      .limit(48)
-
-    const [folderCountsRows, statsRows, totalRows, rows, generatedMediaRows] = await Promise.all([
+    const [folderCountsRows, statsRows, totalRows, rows] = await Promise.all([
       folderCountsPromise,
       statsPromise,
       totalRowsPromise,
-      rowsPromise,
-      generatedMediaPromise
+      rowsPromise
     ])
+
+    const fabricIds = rows.map((r) => r.id)
+
+    const generatedMediaRows =
+      fabricIds.length > 0
+        ? await db
+            .select({
+              id: generatedMedia.id,
+              fabricId: generatedMedia.fabricId,
+              type: generatedMedia.type,
+              url: generatedMedia.url,
+              thumbnailUrl: generatedMedia.thumbnailUrl,
+              status: generatedMedia.status,
+              createdAt: generatedMedia.createdAt
+            })
+            .from(generatedMedia)
+            .where(
+              and(
+                inArray(generatedMedia.fabricId, fabricIds),
+                inArray(generatedMedia.status, ['COMPLETED', 'SUPERSEDED']),
+                isNotNull(generatedMedia.url),
+                isNull(generatedMedia.deletedAt)
+              )
+            )
+            .orderBy(desc(generatedMedia.createdAt))
+        : []
 
     const total = Number(totalRows[0]?.c ?? 0)
     const totalPages = total === 0 ? 0 : Math.ceil(total / limit)
@@ -251,122 +245,45 @@ export class AdminMediaLibraryService {
         .sort((a, b) => b.count - a.count)
     ]
 
-    const fabricItems: MediaLibraryItem[] = rows.map((r) => {
-      const imgs = r.images ?? []
-      const primary = imgs[0] ?? null
+    const items: MediaLibraryItem[] = rows.map((r) => {
+      const imgs = [...(r.images ?? [])]
+      const vids: string[] = []
+      let thumbUrl: string | null = null
+
+      const genForFabric = generatedMediaRows.filter((gm) => gm.fabricId === r.id)
+      for (const gm of genForFabric) {
+        if (!gm.url) continue
+        const mediaUrl = resolveR2Url(gm.url)
+        if (!mediaUrl) continue
+
+        if (gm.type === 'video') {
+          if (!vids.includes(mediaUrl)) vids.push(mediaUrl)
+          if (gm.thumbnailUrl && !thumbUrl) {
+            thumbUrl = resolveR2Url(gm.thumbnailUrl)
+          }
+        } else {
+          if (!imgs.includes(mediaUrl)) imgs.push(mediaUrl)
+        }
+      }
+
+      const primary = imgs[0] ?? vids[0] ?? null
+      const totalMediaCount = imgs.length + vids.length
+
       return {
         id: r.id,
         key: `fabric-${r.id}`,
         title: (r.titleEn ?? r.titleRu ?? `Fabric #${r.id}`).trim(),
         images: imgs,
+        videos: vids,
         primaryImage: primary,
-        imageCount: imgs.length,
+        thumbnailUrl: thumbUrl,
+        imageCount: totalMediaCount,
         status: String(r.status),
         supplierName: r.supplierName,
         categorySlugs: Array.isArray(r.categorySlugs) ? r.categorySlugs.filter((s): s is string => Boolean(s)) : [],
         updatedAt: r.updatedAt.toISOString()
       }
     })
-
-    const items: MediaLibraryItem[] = []
-
-    // Version counts per scope (fabric, or fabric+linked post) so the UI can
-    // show "1 of N" for regenerated media.
-    const scopeKey = (r: { fabricId: number; socialPostId: number | null }) => `${r.fabricId}:${r.socialPostId ?? 'fabric'}`
-    const scopeCounts = new Map<string, number>()
-    for (const r of generatedMediaRows) {
-      const k = scopeKey(r)
-      scopeCounts.set(k, (scopeCounts.get(k) ?? 0) + 1)
-    }
-
-    // 1. Fabric cards (fabrics that have their own images in the catalog)
-    for (const f of fabricItems) {
-      items.push({
-        ...f,
-        images: f.images,
-        videos: [],
-        primaryImage: f.primaryImage,
-        imageCount: f.images.length,
-        status: f.status
-      })
-    }
-
-    // 2. Standalone AI-generated media cards — every video gets its own card
-    //    so it is actually visible in the library (not hidden inside a fabric card).
-    for (const r of generatedMediaRows) {
-      if (!r.url) continue
-      const mediaUrl = resolveR2Url(r.url) ?? ''
-      if (!mediaUrl) continue
-
-      const titleBase = (r.fabricTitleEn ?? r.fabricTitleRu ?? `Fabric #${r.fabricId}`).trim()
-      const isDupFabricImage =
-        r.type !== 'video' &&
-        fabricItems.some((f) => f.id === r.fabricId && (f.images ?? []).includes(mediaUrl))
-
-      if (r.type === 'video') {
-        const thumbUrl = r.thumbnailUrl ? (resolveR2Url(r.thumbnailUrl) ?? null) : null
-        items.push({
-          id: r.fabricId,
-          key: `generated-video-${r.id}`,
-          title: `AI Video — ${titleBase}`,
-          images: [],
-          videos: [mediaUrl],
-          primaryImage: mediaUrl,
-          thumbnailUrl: thumbUrl,
-          imageCount: 1,
-          status: 'ai_video',
-          supplierName: r.supplierName ?? null,
-          categorySlugs: [],
-          updatedAt: r.createdAt.toISOString(),
-          type: 'ai_video',
-          mediaType: r.mediaType,
-          prompt: r.prompt ?? null,
-          provider: r.provider,
-          providerModel: r.providerModel,
-          fileSizeBytes: r.fileSizeBytes,
-          durationSeconds: r.durationSeconds,
-          errorMessage: r.errorMessage,
-          mediaStatus: r.status,
-          isCurrentVersion: r.status === 'COMPLETED',
-          supersededByMediaId: r.supersededByMediaId ?? null,
-          versionCount: scopeCounts.get(scopeKey(r)) ?? 1,
-          adminReviewedAt: r.adminReviewedAt?.toISOString() ?? null,
-          adminReviewerId: r.adminReviewerId,
-          adminReviewNotes: r.adminReviewNotes,
-          metadata: r.metadata
-        })
-      } else if (!isDupFabricImage) {
-        items.push({
-          id: r.fabricId,
-          key: `generated-image-${r.id}`,
-          title: `AI Image — ${titleBase}`,
-          images: [mediaUrl],
-          videos: [],
-          primaryImage: mediaUrl,
-          imageCount: 1,
-          status: 'ai_image',
-          supplierName: r.supplierName ?? null,
-          categorySlugs: [],
-          updatedAt: r.createdAt.toISOString(),
-          type: 'ai_image',
-          mediaType: r.mediaType,
-          prompt: r.prompt ?? null,
-          provider: r.provider,
-          providerModel: r.providerModel,
-          fileSizeBytes: r.fileSizeBytes,
-          durationSeconds: r.durationSeconds,
-          errorMessage: r.errorMessage,
-          mediaStatus: r.status,
-          isCurrentVersion: r.status === 'COMPLETED',
-          supersededByMediaId: r.supersededByMediaId ?? null,
-          versionCount: scopeCounts.get(scopeKey(r)) ?? 1,
-          adminReviewedAt: r.adminReviewedAt?.toISOString() ?? null,
-          adminReviewerId: r.adminReviewerId,
-          adminReviewNotes: r.adminReviewNotes,
-          metadata: r.metadata
-        })
-      }
-    }
 
     return {
       items,

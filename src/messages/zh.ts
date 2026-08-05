@@ -2562,6 +2562,7 @@ export const zhMessages = {
       rejectedToast: '已拒绝',
       wholesaleSimulator: '批发模拟器',
       wholesaleTiers: '批发阶梯',
+      socialContent: '社交内容',
       descriptionEn: '描述（英）',
       usageRu: '用途（俄）',
       usageEn: '用途（英）',

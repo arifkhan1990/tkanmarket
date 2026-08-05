@@ -16,6 +16,10 @@ export interface AdminSocialQueueItem {
   platform: string
   contentType: string
   status: string
+  reviewState?: string | null
+  revisionNumber?: number | null
+  rejectionReason?: string | null
+  supersedesPostId?: number | null
   captionText: string | null
   scheduledAt: string | null
   publishedAt: string | null
@@ -33,6 +37,11 @@ export interface AdminSocialQueueItem {
   scriptText: string | null
   socialScore: number | null
   platformMetadata?: SocialPlatformMetadata | null
+  /** Publish hardening — the account the post was published from and version. */
+  publishCredentialId?: number | null
+  platformAccountId?: string | null
+  publishedVersion?: number | null
+  timezone?: string | null
 }
 
 export interface AdminSocialQueueResult {

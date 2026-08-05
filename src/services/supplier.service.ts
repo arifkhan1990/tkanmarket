@@ -276,7 +276,9 @@ export class SupplierService {
       supplyType: r.supplyType ?? null,
       supplyTypeEn: r.supplyTypeEn ?? null,
       shipmentTime: r.shipmentTime ?? null,
-      shipmentTimeEn: r.shipmentTimeEn ?? null
+      shipmentTimeEn: r.shipmentTimeEn ?? null,
+      hasVideo: false,
+      thumbnailUrl: null
     }))
   }
 }

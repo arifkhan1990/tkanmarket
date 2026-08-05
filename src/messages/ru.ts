@@ -2602,6 +2602,7 @@ export const ruMessages = {
       rejectedToast: 'Отклонено',
       wholesaleSimulator: 'Симулятор оптовых цен',
       wholesaleTiers: 'Оптовые уровни',
+      socialContent: 'Соц. контент',
       descriptionEn: 'Описание (EN)',
       usageRu: 'Использование (RU)',
       usageEn: 'Использование (EN)',

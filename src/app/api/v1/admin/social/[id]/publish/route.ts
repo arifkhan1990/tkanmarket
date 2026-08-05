@@ -26,13 +26,19 @@ export async function POST(
 
     const db = getDb()
     const postRows = await db
-      .select({ captionText: socialPosts.captionText })
+      .select({ captionText: socialPosts.captionText, status: socialPosts.status, reviewState: socialPosts.reviewState })
       .from(socialPosts)
       .where(and(eq(socialPosts.id, params.id), isNull(socialPosts.deletedAt)))
       .limit(1)
 
     const post = postRows[0]
     if (!post) throw new NotFoundError('Social post not found')
+    if (!['APPROVED', 'SCHEDULED'].includes(post.status)) {
+      throw new ValidationError(`Post cannot be published from state ${post.status}; approve it first`)
+    }
+    if (post.reviewState === 'REJECTED') {
+      throw new ValidationError('Rejected posts cannot be published; review the content first')
+    }
     if (!post.captionText || post.captionText.trim().length === 0) {
       throw new ValidationError('Post cannot be published without a caption')
     }

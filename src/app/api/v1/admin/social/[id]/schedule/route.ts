@@ -19,8 +19,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const body = SchedulePostSchema.parse(await req.json().catch(() => ({})))
     const userId = session.user.id ? Number(session.user.id) : NaN
     if (!Number.isFinite(userId)) throw new AuthError('Invalid session user id')
-    await SocialAdminService.schedule(params.id, new Date(body.scheduled_at), userId)
-    return apiSuccess({ id: params.id, status: 'SCHEDULED', scheduled_at: body.scheduled_at })
+    await SocialAdminService.schedule(params.id, new Date(body.scheduled_at), userId, body.timezone)
+    return apiSuccess({ id: params.id, status: 'SCHEDULED', scheduled_at: body.scheduled_at, timezone: body.timezone })
   } catch (err) {
     return toApiErrorResponse(err)
   }

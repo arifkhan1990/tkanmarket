@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -11,19 +12,24 @@ import {
   Code2,
   Eye,
   FileText,
+  Image as ImageIcon,
   LayoutGrid,
   Megaphone,
   Palette,
   RefreshCw,
+  Send,
   Sparkles,
   Target,
   TrendingUp,
+  Video,
   Wand2,
   X
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { PostToSocialDialog } from '@/components/admin/social/post-to-social-dialog'
 import { SocialPreviewFrames, type PreviewMode } from '@/components/admin/social/social-preview-frames'
+import { SocialRevisionsTimeline } from '@/components/admin/social/social-revisions-timeline'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,11 +42,26 @@ import { cn } from '@/lib/utils'
 import type { AdminSocialPostDetail } from '@/types/admin-social.types'
 import type { Messages } from '@/lib/i18n/get-messages'
 
+function isVideoUrl(url: string): boolean {
+  if (!url) return false
+  const lower = url.toLowerCase().split('?')[0] ?? ''
+  return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.m4v')
+}
+
 function pickImage(detail: { primaryImageUrl: string | null; mediaUrls: string[] | null; fabricImages: string[] | null }): string | null {
-  if (detail.primaryImageUrl) return detail.primaryImageUrl
-  const m = detail.mediaUrls?.find(Boolean)
-  if (m) return m
-  return detail.fabricImages?.find(Boolean) ?? null
+  const all = [
+    ...(detail.primaryImageUrl ? [detail.primaryImageUrl] : []),
+    ...(detail.mediaUrls ?? []),
+    ...(detail.fabricImages ?? [])
+  ].filter((u): u is string => Boolean(u && u.trim().length > 0 && !isVideoUrl(u)))
+
+  if (all.length === 0) return null
+
+  // Prioritize AI-generated images (/generated/ path or video thumbnails)
+  const aiGen = all.find((u) => u.includes('/generated/') || u.includes('thumbnail'))
+  if (aiGen) return aiGen
+
+  return all[0] ?? null
 }
 
 function toDatetimeLocalValue(iso: string | null): string {
@@ -90,6 +111,7 @@ type BodyProps = {
   regenerateImage: ReturnType<typeof useAdminSocialPostMutations>['regenerateImage']
   regenerateReel: ReturnType<typeof useAdminSocialPostMutations>['regenerateReel']
   router: ReturnType<typeof useRouter>
+  onPostToOtherPlatforms: () => void
 }
 
 function SectionCard({ title, icon: Icon, action, children }: {
@@ -130,14 +152,27 @@ function RegenInlineButton({ label, pendingLabel, pending, onClick }: { label: s
   )
 }
 
-function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, publish, regenerateCarousel, regenerateImage, regenerateReel, router }: BodyProps) {
+function isVideoLike(contentType: string): boolean {
+  const v = contentType.toUpperCase()
+  return v.includes('REEL') || v.includes('VIDEO')
+}
+
+function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, publish, regenerateCarousel, regenerateImage, regenerateReel, router, onPostToOtherPlatforms }: BodyProps) {
   const [mode, setMode] = useState<PreviewMode>(() => platformToMode(detail.platform))
   const [caption, setCaption] = useState(() => detail.captionText ?? '')
   const [tags, setTags] = useState(() => detail.hashtags ?? [])
   const [tagInput, setTagInput] = useState('')
   const [scheduleLocal, setScheduleLocal] = useState(() => toDatetimeLocalValue(detail.scheduledAt))
 
-  const imageUrl = useMemo(() => detail.generatedVideoUrl ?? pickImage(detail), [detail])
+  const hasVideo = isVideoLike(detail.contentType) && Boolean(detail.generatedVideoUrl)
+  const [mediaTab, setMediaTab] = useState<'video' | 'image'>(() => (hasVideo ? 'video' : 'image'))
+
+  const imageUrl = useMemo(() => {
+    if (mediaTab === 'video' && hasVideo && detail.generatedVideoUrl) {
+      return detail.generatedVideoUrl
+    }
+    return pickImage(detail)
+  }, [mediaTab, hasVideo, detail])
 
   const displayName = useMemo(() => {
     if (!detail.fabricTitle) return 'tkanmarket'
@@ -267,6 +302,34 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
           <SectionCard title={p.previewTitle} icon={Eye} action={
             <Badge intent="brand">{p.campaignAi}</Badge>
           }>
+            {hasVideo ? (
+              <div className="mb-4 flex justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMediaTab('video')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                    mediaTab === 'video'
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  <Video className="h-3.5 w-3.5" /> Video Reel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaTab('image')}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors',
+                    mediaTab === 'image'
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'bg-surface-container-high text-on-surface-variant hover:text-on-surface'
+                  )}
+                >
+                  <ImageIcon className="h-3.5 w-3.5" /> Image Cover
+                </button>
+              </div>
+            ) : null}
             <div className="flex justify-center">
               <SocialPreviewFrames
                 mode={mode}
@@ -552,6 +615,15 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
               <Button type="button" variant="outline" className="h-12 flex-1 rounded-2xl" onClick={onSave} disabled={patchPost.isPending}>
                 {p.saveDraft}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 flex-1 rounded-2xl gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                onClick={onPostToOtherPlatforms}
+              >
+                <Send className="h-4 w-4" aria-hidden />
+                Post to other platforms
+              </Button>
               <Button type="button" className="h-12 flex-[2] rounded-2xl shadow-lg" onClick={onSchedule} disabled={schedule.isPending}>
                 {p.approveSchedule}
               </Button>
@@ -577,6 +649,15 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
           <Button type="button" variant="outline" className="rounded-xl" onClick={onReject} disabled={reject.isPending}>
             {p.rejectPost}
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/5"
+            onClick={onPostToOtherPlatforms}
+          >
+            <Send className="h-4 w-4" aria-hidden />
+            Post to others
+          </Button>
           <Button type="button" className="rounded-xl" onClick={() => publish.mutate()} disabled={publish.isPending}>
             {p.publishNow}
           </Button>
@@ -595,6 +676,9 @@ export function AdminSocialPreviewClient({ postId }: { postId: number }) {
   const mutations = useAdminSocialPostMutations(postId)
 
   const detail = query.data?.success ? query.data.data : undefined
+
+  // Post to other platforms dialog state
+  const [postToSocialOpen, setPostToSocialOpen] = React.useState(false)
 
   if (query.isError) {
     return (
@@ -639,7 +723,20 @@ export function AdminSocialPreviewClient({ postId }: { postId: number }) {
         regenerateImage={mutations.regenerateImage}
         regenerateReel={mutations.regenerateReel}
         router={router}
+        onPostToOtherPlatforms={() => setPostToSocialOpen(true)}
       />
+      <div className="mx-auto mt-8 max-w-5xl px-4">
+        <SocialRevisionsTimeline postId={postId} />
+      </div>
+
+      {detail ? (
+        <PostToSocialDialog
+          open={postToSocialOpen}
+          onOpenChange={setPostToSocialOpen}
+          fabricId={detail.fabricId}
+          fabricTitle={detail.fabricTitle ?? `Fabric #${detail.fabricId}`}
+        />
+      ) : null}
     </div>
   )
 }

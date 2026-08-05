@@ -105,7 +105,17 @@ export function FabricDetailClient({ slug }: { slug: string }) {
             <section className="lg:col-span-7 xl:col-span-8 space-y-6">
               <div className="rounded-[3rem] bg-surface-container-lowest border border-outline/10 p-4 overflow-hidden">
                 <div className="aspect-[4/3] rounded-[2.5rem] overflow-hidden bg-surface-container-low/30">
-                  {fabric.images?.[0] ? (
+                  {fabric.hasVideo && fabric.videoUrl ? (
+                    <video
+                      src={fabric.videoUrl}
+                      poster={fabric.videoThumbnailUrl ?? undefined}
+                      className="h-full w-full object-cover"
+                      muted
+                      playsInline
+                      controls
+                      preload="metadata"
+                    />
+                  ) : fabric.images?.[0] ? (
                     <Image
                       src={fabric.images[0]}
                       alt={getLocalizedFabricTitle(fabric, locale)}

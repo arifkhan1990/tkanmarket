@@ -1,0 +1,1 @@
+ALTER TYPE "public"."social_post_status" ADD VALUE 'PUBLISHING' BEFORE 'PUBLISHED';

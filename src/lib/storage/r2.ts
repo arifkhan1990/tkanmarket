@@ -50,12 +50,25 @@ export function getPublicBaseUrl(): string {
 export function resolveR2Url(url: string | null): string | null {
   if (!url) return null
   const trimmed = url.trim()
+  if (!trimmed) return null
+
+  // Automatically convert Google Drive view/share/download links to direct high-res CDN image URLs
+  if (trimmed.includes('drive.google.com') || trimmed.includes('googleusercontent.com')) {
+    const matchFileD = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
+    const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+    const matchD = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/)
+    const driveId = matchFileD?.[1] ?? matchId?.[1] ?? matchD?.[1]
+    if (driveId) {
+      return `https://lh3.googleusercontent.com/d/${driveId}`
+    }
+  }
+
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
     return trimmed
   }
   const r2Prefix = '/fabrics/'
   if (trimmed.startsWith(r2Prefix)) {
-    const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_BASE_URL ?? `https://r2.dev`
+    const baseUrl = getPublicBaseUrl()
     return `${baseUrl.replace(/\/+$/, '')}${trimmed}`
   }
   return trimmed

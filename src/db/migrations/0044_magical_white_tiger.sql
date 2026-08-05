@@ -1,0 +1,1 @@
+ALTER TABLE "admin_settings" ADD COLUMN "social_media_policy_json" jsonb DEFAULT '{}'::jsonb NOT NULL;

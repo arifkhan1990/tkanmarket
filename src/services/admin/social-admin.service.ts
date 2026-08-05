@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql }
 
 import { getDb } from '@/db'
 import { fabrics } from '@/db/schema/fabrics.schema'
-import { socialPosts } from '@/db/schema/social.schema'
+import { socialActivityLog, socialPosts, socialPostRevisions } from '@/db/schema/social.schema'
 import { generatedMedia } from '@/db/schema/generated-media.schema'
 import { suppliers } from '@/db/schema/suppliers.schema'
 import { resolveR2Url } from '@/lib/storage/r2'
@@ -40,15 +40,42 @@ function defaultContentTypeForPlatform(platform: Platform): ContentType {
   }
 }
 
-function pickPrimaryImage(mediaUrls: string[] | null | undefined, fabricImages: string[] | null | undefined): string | null {
-  const fromPost = mediaUrls?.find((u) => u && u.length > 0)
-  if (fromPost) return fromPost
-  const fromFabric = fabricImages?.find((u) => u && u.length > 0)
-  return fromFabric ?? null
+function isVideoUrl(url: string): boolean {
+  if (!url) return false
+  const lower = url.toLowerCase().split('?')[0] ?? ''
+  return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.m4v')
 }
 
-function buildSharedContent(metadata: Record<string, unknown> | null | undefined, reelScript?: string | null): SocialContentShared {
-  const m = metadata ?? {}
+function pickPrimaryImage(mediaUrls: string[] | null | undefined, fabricImages: string[] | null | undefined): string | null {
+  const all = [...(mediaUrls ?? []), ...(fabricImages ?? [])].filter(
+    (u): u is string => Boolean(u && u.trim().length > 0 && !isVideoUrl(u))
+  )
+  if (all.length === 0) return null
+
+  // Prioritize AI-generated images (/generated/ path or video thumbnails)
+  const aiGen = all.find((u) => u.includes('/generated/') || u.includes('thumbnail'))
+  if (aiGen) return aiGen
+
+  return all[0] ?? null
+}
+
+function parseMetadata(metadata: unknown): Record<string, unknown> {
+  if (!metadata) return {}
+  if (typeof metadata === 'string') {
+    try {
+      return JSON.parse(metadata) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }
+  if (typeof metadata === 'object' && metadata !== null) {
+    return metadata as Record<string, unknown>
+  }
+  return {}
+}
+
+function buildSharedContent(metadata: unknown, reelScript?: string | null): SocialContentShared {
+  const m = parseMetadata(metadata)
   return {
     postTitle: (m.postTitle as string) ?? null,
     callToAction: (m.callToAction as string) ?? null,
@@ -65,11 +92,31 @@ function buildSharedContent(metadata: Record<string, unknown> | null | undefined
   }
 }
 
+function buildPostSnapshot(r: {
+  captionText: string | null
+  hashtags: string[] | null
+  scriptText: string | null
+  mediaUrls: string[] | null
+  platformMetadata: unknown
+}): Record<string, unknown> {
+  return {
+    caption: r.captionText ?? null,
+    hashtags: r.hashtags ?? [],
+    script: r.scriptText ?? null,
+    mediaUrls: r.mediaUrls ?? [],
+    platformMetadata: parseMetadata(r.platformMetadata)
+  }
+}
+
 function mapRowToItem(r: {
   id: number
   platform: string
   contentType: string
   status: string
+  reviewState: string | null
+  revisionNumber: number | null
+  rejectionReason: string | null
+  supersedesPostId: number | null
   captionText: string | null
   scheduledAt: Date | null
   publishedAt: Date | null
@@ -87,12 +134,20 @@ function mapRowToItem(r: {
   fabricSku: string | null
   supplierName: string | null
   socialScore: number | null
+  publishCredentialId: number | null
+  platformAccountId: string | null
+  publishedVersion: number | null
+  timezone: string | null
 }): AdminSocialQueueItem {
   return {
     id: r.id,
     platform: r.platform,
     contentType: r.contentType,
     status: r.status,
+    reviewState: r.reviewState,
+    revisionNumber: r.revisionNumber,
+    rejectionReason: r.rejectionReason,
+    supersedesPostId: r.supersedesPostId,
     captionText: r.captionText,
     scheduledAt: r.scheduledAt ? (r.scheduledAt instanceof Date ? r.scheduledAt.toISOString() : String(r.scheduledAt)) : null,
     publishedAt: r.publishedAt ? (r.publishedAt instanceof Date ? r.publishedAt.toISOString() : String(r.publishedAt)) : null,
@@ -108,7 +163,11 @@ function mapRowToItem(r: {
     hashtags: r.hashtags,
     scriptText: r.scriptText,
     socialScore: r.socialScore,
-    platformMetadata: r.platformMetadata
+    platformMetadata: r.platformMetadata,
+    publishCredentialId: r.publishCredentialId,
+    platformAccountId: r.platformAccountId,
+    publishedVersion: r.publishedVersion,
+    timezone: r.timezone
   }
 }
 
@@ -121,6 +180,10 @@ export class SocialAdminService {
         platform: socialPosts.platform,
         contentType: socialPosts.contentType,
         status: socialPosts.status,
+        reviewState: socialPosts.reviewState,
+        revisionNumber: socialPosts.revisionNumber,
+        rejectionReason: socialPosts.rejectionReason,
+        supersedesPostId: socialPosts.supersedesPostId,
         captionText: socialPosts.captionText,
         scheduledAt: socialPosts.scheduledAt,
         publishedAt: socialPosts.publishedAt,
@@ -137,11 +200,15 @@ export class SocialAdminService {
         fabricTitle: sql<string | null>`COALESCE(${fabrics.titleEn}, ${fabrics.titleRu})`,
         fabricSku: fabrics.sku,
         supplierName: suppliers.name,
-        socialScore: fabrics.socialScore
+        socialScore: fabrics.socialScore,
+        publishCredentialId: socialPosts.publishCredentialId,
+        platformAccountId: socialPosts.platformAccountId,
+        publishedVersion: socialPosts.publishedVersion,
+        timezone: socialPosts.timezone
       })
       .from(socialPosts)
-      .innerJoin(fabrics, eq(socialPosts.fabricId, fabrics.id))
-      .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
+      .leftJoin(fabrics, eq(socialPosts.fabricId, fabrics.id))
+      .leftJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
   }
 
   public static async listQueue(params: {
@@ -179,12 +246,14 @@ export class SocialAdminService {
     status?: PostStatus
     search?: string
     contentType?: ContentType
+    fabricId?: number
   }): Promise<AdminSocialQueueResult> {
     const offset = (params.page - 1) * params.limit
 
     const parts: SQL[] = [isNull(socialPosts.deletedAt), isNull(fabrics.deletedAt)]
     if (params.platform) parts.push(eq(socialPosts.platform, params.platform))
     if (params.status) parts.push(eq(socialPosts.status, params.status))
+    if (params.fabricId !== undefined) parts.push(eq(socialPosts.fabricId, params.fabricId))
     if (params.search && params.search.trim().length > 0) {
       const needle = params.search.trim()
       parts.push(
@@ -267,7 +336,7 @@ export class SocialAdminService {
   }
 
   public static async getById(id: number): Promise<AdminSocialPostDetail | null> {
-    const where = and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt), isNull(fabrics.deletedAt))
+    const where = and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt))
 
     const rows = await SocialAdminService.baseJoin().where(where).limit(1)
     const r = rows[0]
@@ -275,24 +344,29 @@ export class SocialAdminService {
 
     const base = mapRowToItem(r)
 
-    // Latest COMPLETED AI-generated reel for the post's fabric. Used by the
-    // content-preview page so the admin can verify the video before publishing.
-    const videoRows = await getDb()
-      .select({ url: generatedMedia.url })
-      .from(generatedMedia)
-      .where(
-        and(
-          eq(generatedMedia.fabricId, r.fabricId),
-          eq(generatedMedia.type, 'video'),
-          eq(generatedMedia.status, 'COMPLETED'),
-          isNotNull(generatedMedia.url),
-          isNull(generatedMedia.deletedAt)
-        )
-      )
-      .orderBy(desc(generatedMedia.createdAt))
-      .limit(1)
+    const isReel = r.contentType.toUpperCase().includes('REEL') || r.contentType.toUpperCase().includes('VIDEO')
 
-    const generatedVideoUrl = videoRows[0]?.url ? (resolveR2Url(videoRows[0].url) ?? null) : null
+    let generatedVideoUrl: string | null = null
+    if (isReel) {
+      // Latest COMPLETED AI-generated reel for the post's fabric. Used by the
+      // content-preview page so the admin can verify the video before publishing.
+      const videoRows = await getDb()
+        .select({ url: generatedMedia.url })
+        .from(generatedMedia)
+        .where(
+          and(
+            eq(generatedMedia.fabricId, r.fabricId),
+            eq(generatedMedia.type, 'video'),
+            eq(generatedMedia.status, 'COMPLETED'),
+            isNotNull(generatedMedia.url),
+            isNull(generatedMedia.deletedAt)
+          )
+        )
+        .orderBy(desc(generatedMedia.createdAt))
+        .limit(1)
+
+      generatedVideoUrl = videoRows[0]?.url ? (resolveR2Url(videoRows[0].url) ?? null) : null
+    }
 
     return {
       ...base,
@@ -303,30 +377,80 @@ export class SocialAdminService {
     }
   }
 
+  private static async writeRevision(input: {
+    postId: number
+    revisionNumber: number
+    changeType: 'GENERATED' | 'REGENERATED' | 'CAPTION_EDITED' | 'HASHTAGS_EDITED' | 'SCRIPT_EDITED' | 'SCHEDULED' | 'REJECTED' | 'RESTORED'
+    snapshot: Record<string, unknown>
+    before?: Record<string, unknown> | null
+    after?: Record<string, unknown> | null
+    actorUserId?: number | null
+  }) {
+    await getDb().insert(socialPostRevisions).values({
+      postId: input.postId,
+      revisionNumber: input.revisionNumber,
+      changeType: input.changeType,
+      snapshot: input.snapshot,
+      before: input.before ?? null,
+      after: input.after ?? null,
+      changedByUserId: input.actorUserId ?? null
+    })
+  }
+
   public static async approve(id: number, actorUserId: number | null = null) {
     const db = getDb()
+    const [existing] = await db
+      .select({ reviewState: socialPosts.reviewState })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+      .limit(1)
+
+    // Content approval. If the video was already fully approved, keep it that way.
+    const nextReviewState = existing?.reviewState === 'FULLY_APPROVED' ? 'FULLY_APPROVED' : 'CONTENT_APPROVED'
+
     await db
       .update(socialPosts)
       .set({
         status: 'APPROVED',
+        reviewState: nextReviewState,
         approvedByUserId: actorUserId,
         approvedAt: new Date(),
+        rejectionReason: null,
+        rejectedByUserId: null,
+        rejectedAt: null,
         updatedAt: new Date()
       })
       .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+
+    await db.insert(socialActivityLog).values({
+      postId: id,
+      action: 'APPROVED',
+      actorUserId,
+      details: { reviewState: nextReviewState }
+    })
   }
 
-  public static async schedule(id: number, scheduledAt: Date, actorUserId: number | null = null) {
+  public static async schedule(id: number, scheduledAt: Date, actorUserId: number | null = null, timezone: string = 'UTC') {
     const db = getDb()
-    await db
+    const updated = await db
       .update(socialPosts)
       .set({
         status: 'SCHEDULED',
         scheduledAt,
         scheduledByUserId: actorUserId,
+        timezone,
         updatedAt: new Date()
       })
       .where(and(eq(socialPosts.id, id), inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'FAILED']), isNull(socialPosts.deletedAt)))
+      .returning({ id: socialPosts.id })
+    if (updated.length > 0) {
+      await db.insert(socialActivityLog).values({
+        postId: id,
+        action: 'SCHEDULED',
+        actorUserId,
+        details: { scheduledAt: scheduledAt.toISOString(), timezone }
+      })
+    }
   }
 
   public static async publish(id: number, actorUserId: number | null = null) {
@@ -339,18 +463,72 @@ export class SocialAdminService {
     await db.update(socialPosts).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(socialPosts.id, id))
   }
 
-  public static async updateCaption(id: number, captionText: string) {
+  public static async updateCaption(id: number, captionText: string, actorUserId: number | null = null) {
     const db = getDb()
     const trimmed = captionText.trim()
+    const [post] = await db
+      .select({
+        revisionNumber: socialPosts.revisionNumber,
+        captionText: socialPosts.captionText,
+        hashtags: socialPosts.hashtags,
+        scriptText: socialPosts.scriptText,
+        mediaUrls: socialPosts.mediaUrls,
+        platformMetadata: socialPosts.platformMetadata,
+        reviewState: socialPosts.reviewState
+      })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+      .limit(1)
+    if (!post) throw new NotFoundError('Social post not found')
+
+    const before = buildPostSnapshot(post)
+    const nextCaption = trimmed.length > 0 ? trimmed : null
+
     await db
       .update(socialPosts)
-      .set({ captionText: trimmed.length > 0 ? trimmed : null, updatedAt: new Date() })
+      .set({ captionText: nextCaption, reviewState: post.reviewState === 'FULLY_APPROVED' ? 'FULLY_APPROVED' : 'NOT_REVIEWED', updatedAt: new Date() })
       .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+
+    await SocialAdminService.writeRevision({
+      postId: id,
+      revisionNumber: post.revisionNumber,
+      changeType: 'CAPTION_EDITED',
+      snapshot: { ...before, caption: nextCaption },
+      before,
+      after: { ...before, caption: nextCaption },
+      actorUserId
+    })
   }
 
-  public static async updateHashtags(id: number, hashtags: string[]) {
+  public static async updateHashtags(id: number, hashtags: string[], actorUserId: number | null = null) {
     const db = getDb()
+    const [post] = await db
+      .select({
+        revisionNumber: socialPosts.revisionNumber,
+        captionText: socialPosts.captionText,
+        hashtags: socialPosts.hashtags,
+        scriptText: socialPosts.scriptText,
+        mediaUrls: socialPosts.mediaUrls,
+        platformMetadata: socialPosts.platformMetadata
+      })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+      .limit(1)
+    if (!post) throw new NotFoundError('Social post not found')
+
+    const before = buildPostSnapshot(post)
+
     await db.update(socialPosts).set({ hashtags, updatedAt: new Date() }).where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+
+    await SocialAdminService.writeRevision({
+      postId: id,
+      revisionNumber: post.revisionNumber,
+      changeType: 'HASHTAGS_EDITED',
+      snapshot: { ...before, hashtags },
+      before,
+      after: { ...before, hashtags },
+      actorUserId
+    })
   }
 
   public static async createDraft(input: { fabricId: number; platform: Platform; contentType?: ContentType }) {
@@ -412,8 +590,9 @@ export class SocialAdminService {
       throw new Error('Failed to create social post')
     }
 
-    // Enqueue AI social content generation
-    await addSocialJob(input.fabricId).catch(() => {})
+    // Enqueue AI social content generation for the requested platform only —
+    // never silently generate content for all 5 platforms the admin didn't ask for.
+    await addSocialJob(input.fabricId, [input.platform]).catch(() => {})
 
     return created
   }
@@ -502,10 +681,26 @@ export class SocialAdminService {
         .where(eq(generatedMedia.id, media.id))
     }
 
+    // Video approved: mark the post fully approved (content + video reviewed).
+    const [post] = await db
+      .select({ revisionNumber: socialPosts.revisionNumber })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+      .limit(1)
+
     await db
       .update(socialPosts)
-      .set({ status: 'APPROVED', updatedAt: now })
+      .set({ status: 'APPROVED', reviewState: 'FULLY_APPROVED', updatedAt: now })
       .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+
+    await SocialAdminService.writeRevision({
+      postId,
+      revisionNumber: post?.revisionNumber ?? 1,
+      changeType: 'REGENERATED',
+      snapshot: { videoApproved: true, reviewedByUserId: actorUserId },
+      after: { videoApproved: true },
+      actorUserId
+    })
   }
 
   public static async rejectVideo(postId: number, actorUserId: number, notes?: string) {
@@ -525,10 +720,180 @@ export class SocialAdminService {
         .where(eq(generatedMedia.id, media.id))
     }
 
+    const [post] = await db
+      .select({ revisionNumber: socialPosts.revisionNumber })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+      .limit(1)
+
     await db
       .update(socialPosts)
-      .set({ status: 'DRAFT', updatedAt: now })
+      .set({
+        status: 'DRAFT',
+        reviewState: 'REJECTED',
+        rejectionReason: notes ?? null,
+        rejectedByUserId: actorUserId,
+        rejectedAt: now,
+        updatedAt: now
+      })
       .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+
+    await SocialAdminService.writeRevision({
+      postId,
+      revisionNumber: post?.revisionNumber ?? 1,
+      changeType: 'REJECTED',
+      snapshot: { videoRejected: true, rejectedByUserId: actorUserId, reason: notes ?? null },
+      after: { rejected: true, reason: notes ?? null },
+      actorUserId
+    })
+
+    await db.insert(socialActivityLog).values({
+      postId,
+      action: 'REJECTED',
+      actorUserId,
+      details: { platform: 'VIDEO', reason: notes ?? null }
+    })
+  }
+
+  public static async reject(id: number, actorUserId: number | null, reason: string, notes?: string | null) {
+    const db = getDb()
+    const now = new Date()
+
+    const [post] = await db
+      .select({
+        revisionNumber: socialPosts.revisionNumber,
+        captionText: socialPosts.captionText,
+        hashtags: socialPosts.hashtags,
+        scriptText: socialPosts.scriptText,
+        mediaUrls: socialPosts.mediaUrls,
+        platformMetadata: socialPosts.platformMetadata
+      })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+      .limit(1)
+
+    if (!post) throw new NotFoundError('Social post not found')
+
+    const rejectionReason = notes?.trim() ? `${reason}: ${notes.trim()}` : reason
+
+    await db
+      .update(socialPosts)
+      .set({
+        status: 'DRAFT',
+        reviewState: 'REJECTED',
+        rejectionReason,
+        rejectedByUserId: actorUserId,
+        rejectedAt: now,
+        updatedAt: now
+      })
+      .where(and(eq(socialPosts.id, id), isNull(socialPosts.deletedAt)))
+
+    const before = buildPostSnapshot(post)
+    await SocialAdminService.writeRevision({
+      postId: id,
+      revisionNumber: post.revisionNumber,
+      changeType: 'REJECTED',
+      snapshot: before,
+      before,
+      after: { ...before, rejected: true, reason: rejectionReason },
+      actorUserId
+    })
+
+    await db.insert(socialActivityLog).values({
+      postId: id,
+      action: 'REJECTED',
+      actorUserId,
+      details: { reason: rejectionReason }
+    })
+  }
+
+  public static async listRevisions(postId: number) {
+    const db = getDb()
+    return db
+      .select({
+        id: socialPostRevisions.id,
+        revisionNumber: socialPostRevisions.revisionNumber,
+        changeType: socialPostRevisions.changeType,
+        snapshot: socialPostRevisions.snapshot,
+        before: socialPostRevisions.before,
+        after: socialPostRevisions.after,
+        changedByUserId: socialPostRevisions.changedByUserId,
+        createdAt: socialPostRevisions.createdAt
+      })
+      .from(socialPostRevisions)
+      .where(eq(socialPostRevisions.postId, postId))
+      .orderBy(desc(socialPostRevisions.createdAt))
+  }
+
+  public static async restoreVersion(postId: number, actorUserId: number | null, revisionId: number) {
+    const db = getDb()
+    const [revision] = await db
+      .select({ snapshot: socialPostRevisions.snapshot })
+      .from(socialPostRevisions)
+      .where(and(eq(socialPostRevisions.id, revisionId), eq(socialPostRevisions.postId, postId)))
+      .limit(1)
+    if (!revision) throw new NotFoundError('Revision not found')
+
+    const snap = (revision.snapshot ?? {}) as {
+      caption?: string | null
+      hashtags?: string[] | null
+      script?: string | null
+      platformMetadata?: Record<string, unknown> | null
+    }
+
+    const [post] = await db
+      .select({
+        revisionNumber: socialPosts.revisionNumber,
+        captionText: socialPosts.captionText,
+        hashtags: socialPosts.hashtags,
+        scriptText: socialPosts.scriptText,
+        mediaUrls: socialPosts.mediaUrls,
+        platformMetadata: socialPosts.platformMetadata
+      })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+      .limit(1)
+    if (!post) throw new NotFoundError('Social post not found')
+
+    const before = buildPostSnapshot(post)
+    const nextRevisionNumber = post.revisionNumber + 1
+
+    await db
+      .update(socialPosts)
+      .set({
+        captionText: snap.caption?.trim() ? snap.caption : null,
+        hashtags: snap.hashtags && snap.hashtags.length > 0 ? snap.hashtags : null,
+        scriptText: snap.script ?? null,
+        platformMetadata: snap.platformMetadata ?? null,
+        reviewState: 'NOT_REVIEWED',
+        revisionNumber: nextRevisionNumber,
+        updatedAt: new Date()
+      })
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+
+    const after = buildPostSnapshot({
+      captionText: snap.caption ?? null,
+      hashtags: snap.hashtags ?? null,
+      scriptText: snap.script ?? null,
+      mediaUrls: post.mediaUrls,
+      platformMetadata: snap.platformMetadata ?? null
+    })
+    await SocialAdminService.writeRevision({
+      postId,
+      revisionNumber: nextRevisionNumber,
+      changeType: 'RESTORED',
+      snapshot: after,
+      before,
+      after,
+      actorUserId
+    })
+
+    await db.insert(socialActivityLog).values({
+      postId,
+      action: 'REOPENED',
+      actorUserId,
+      details: { restoredRevisionNumber: nextRevisionNumber, changeType: 'RESTORED' }
+    })
   }
 
   public static async requestVideoGeneration(fabricId: number, platform: string, _duration: number) {

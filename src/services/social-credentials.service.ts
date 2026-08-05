@@ -221,6 +221,23 @@ export class SocialCredentialsService {
     return this.toPlatformCredentialWithRefresh(row)
   }
 
+  /**
+   * Fetches a specific credential by id (the one bound to a post via
+   * publish_credential_id). Returns null when the credential is soft-deleted or
+   * deactivated, so callers can fall back to the platform's active account.
+   */
+  public static async getCredentialById(credentialId: number): Promise<PlatformCredential | null> {
+    const db = getDb()
+    const rows = await db
+      .select()
+      .from(socialPlatformCredentials)
+      .where(and(eq(socialPlatformCredentials.id, credentialId), isNull(socialPlatformCredentials.deletedAt)))
+      .limit(1)
+    const row = rows[0]
+    if (!row || !row.isActive) return null
+    return this.toPlatformCredentialWithRefresh(row)
+  }
+
   private static async toPlatformCredentialWithRefresh(row: typeof socialPlatformCredentials.$inferSelect): Promise<PlatformCredential> {
     const needsRefresh = !!row.expiresAt && row.expiresAt.getTime() - Date.now() < SOCIAL_TOKEN_REFRESH_LEEWAY_MS
     if (needsRefresh) {

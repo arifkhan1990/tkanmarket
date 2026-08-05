@@ -2,6 +2,7 @@ import { callGemini } from '@/lib/google/client'
 import { logger } from '@/lib/logger'
 
 export interface FabricRawData {
+  id?: number
   titleEn?: string | null
   titleRu?: string | null
   fabricType?: string | null
@@ -17,7 +18,7 @@ export interface FabricRawData {
 export class FabricConsistencyGuardService {
   /**
    * Enforces 100% strict raw data locking into the prompt.
-   * Prevents AI hallucination, color shift, or wrong design generation.
+   * Prevents AI hallucination, color shift, sequence mismatch, or wrong design generation.
    */
   static enforceRawDataLock(basePrompt: string, fabric: FabricRawData): string {
     const color = fabric.colorEn ?? fabric.color ?? 'Exact original color'
@@ -33,13 +34,14 @@ export class FabricConsistencyGuardService {
 
     const consistencyBlock = [
       `[CRITICAL RAW DATA ANCHOR & LOCK FOR 100% B2B FIDELITY]:`,
-      `- EXACT TARGET COLOR: "${color}" (DO NOT alter color, shade, tint, or tone. If raw data specifies black, output must be pure black).`,
-      `- EXACT FABRIC / PATTERN TYPE: "${fabricType}" (Maintain exact weave, pattern structure, and textile architecture).`,
+      `- EXACT TARGET COLOR & PALETTE: "${color}" (DO NOT alter color, shade, tint, tone, or hue. Output MUST strictly match original raw fabric color specification).`,
+      `- MULTI-COLOR SWATCH TO ROLL SEQUENCE MATCHING: If the raw source image contains a stack or bundle of small cut fabric swatches in multiple colors, the generated fabric roll shot MUST arrange the rolls in the EXACT SAME color and design sequence as shown in the raw swatch stack.`,
+      `- EXACT FABRIC / PATTERN / WEAVE STRUCTURE: "${fabricType}" (Maintain exact weave architecture, pattern repeats, and texture context across image and video).`,
       gsm ? `- EXACT WEIGHT: "${gsm}"` : '',
       compositionStr ? `- EXACT COMPOSITION: "${compositionStr}"` : '',
-      `- INTENDED USAGE: "${usage}"`,
-      `MANDATORY CONSTRAINTS: Zero color drift. Zero hallucinated patterns. Maintain 100% strict faithfulness to original supplier raw sample specifications.`,
-      `NEGATIVE PROMPT / FORBIDDEN: wrong color, color shift, altered pattern, hallucinated texture, inaccurate design, different fabric type.`
+      `- INTENDED USAGE & CONTEXT: "${usage}"`,
+      `MANDATORY CONSTRAINTS FOR IMAGE & VIDEO: Zero color drift. Zero hallucinated colors or altered patterns. Maintain 100% strict visual and contextual fidelity to original raw fabric cut samples.`,
+      `NEGATIVE PROMPT / FORBIDDEN: wrong color, color shift, altered color sequence, mismatched pattern, hallucinated texture, inaccurate design, different fabric type.`
     ]
       .filter(Boolean)
       .join('\n')
@@ -84,7 +86,7 @@ export class FabricConsistencyGuardService {
         {
           model: 'gemini-3.5-flash-lite',
           responseFormat: 'json_object',
-          context: { source: 'image' }
+          context: { source: 'image', fabricId: fabric.id }
         }
       )
 

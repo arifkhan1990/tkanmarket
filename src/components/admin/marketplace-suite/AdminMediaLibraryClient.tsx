@@ -23,13 +23,14 @@ import {
   List,
   RefreshCw,
   Search,
+  Send,
   Sparkles,
   X
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -39,12 +40,14 @@ import { useMediaLibraryQuery } from '@/hooks/admin/useMediaLibraryQuery'
 import { useAdminFabricDraftOptionsQuery } from '@/hooks/admin/useAdminFabricDraftOptionsQuery'
 import { useI18n } from '@/hooks/useI18n'
 import { interpolate } from '@/lib/i18n/interpolate'
-import { cn } from '@/lib/utils'
+import { cn, isRemoteImageSrc } from '@/lib/utils'
 import type {
   MediaLibraryItem,
   MediaLibrarySort,
   MediaLibraryStatusFilter
 } from '@/types/admin-media-library.types'
+
+import { PostToSocialDialog } from '@/components/admin/social/post-to-social-dialog'
 
 type ViewMode = 'grid' | 'list'
 type CopyType = ReturnType<typeof useI18n>['messages']['admin']['mediaLibraryPage']
@@ -173,12 +176,14 @@ function MediaCard({
   item,
   copy,
   onPreview,
-  onCopyUrl
+  onCopyUrl,
+  onPostToSocial
 }: {
   item: MediaLibraryItem
   copy: CopyType
   onPreview: (item: MediaLibraryItem) => void
   onCopyUrl: (url: string) => void
+  onPostToSocial: (item: MediaLibraryItem) => void
 }) {
   return (
     <div
@@ -209,9 +214,10 @@ function MediaCard({
                 fill
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                unoptimized={isRemoteImageSrc(item.primaryImage)}
               />
             )}
-            {item.status === 'ai_video' ? (
+            {(item.videos && item.videos.length > 0) || item.status === 'ai_video' ? (
               <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 p-1.5">
                 <Film className="h-4 w-4 text-white" aria-hidden />
               </span>
@@ -261,6 +267,17 @@ function MediaCard({
               {copy.openFabric}
             </Link>
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 rounded-lg p-0 text-primary border-primary/30 hover:bg-primary/10"
+            onClick={() => onPostToSocial(item)}
+            aria-label="Post to social media"
+            title="Post to social media"
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden />
+          </Button>
           {item.primaryImage ? (
             <Button
               type="button"
@@ -306,7 +323,7 @@ function MediaListRow({
           item.primaryImage.endsWith('.mp4') ? (
             <video src={item.primaryImage} poster={item.thumbnailUrl ?? undefined} muted preload="metadata" className="h-full w-full object-cover" />
           ) : (
-            <Image src={item.primaryImage} alt="" fill className="object-cover" sizes="56px" />
+            <Image src={item.primaryImage} alt="" fill className="object-cover" sizes="56px" unoptimized={isRemoteImageSrc(item.primaryImage)} />
           )
         ) : (
           <ImageOff className="absolute inset-0 m-auto h-5 w-5 text-on-surface-variant" aria-hidden />
@@ -361,13 +378,15 @@ function PreviewDialog({
   open,
   onOpenChange,
   copy,
-  onCopyUrl
+  onCopyUrl,
+  onPostToSocial
 }: {
   item: MediaLibraryItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
   copy: CopyType
   onCopyUrl: (url: string) => void
+  onPostToSocial: (item: MediaLibraryItem) => void
 }) {
   const [index, setIndex] = React.useState(0)
   React.useEffect(() => {
@@ -386,14 +405,14 @@ function PreviewDialog({
           <DialogTitle className="font-heading text-lg font-extrabold tracking-tight text-on-surface">
             {item.title}
           </DialogTitle>
-          <p className="text-xs text-on-surface-variant">
+          <DialogDescription className="text-xs text-on-surface-variant">
             {item.supplierName ?? '—'} · <StatusBadge status={item.status} />
             {item.type === 'ai_video' || item.type === 'ai_image' ? (
               <>
                 {' '}· <VersionBadge item={item} />
               </>
             ) : null}
-          </p>
+          </DialogDescription>
         </DialogHeader>
         <div className="relative mt-4 aspect-[4/3] w-full overflow-hidden rounded-xl bg-surface-container-high">
           {current ? (
@@ -406,6 +425,7 @@ function PreviewDialog({
                 fill
                 className="object-contain"
                 sizes="(max-width: 1024px) 90vw, 800px"
+                unoptimized={isRemoteImageSrc(current)}
               />
             )
           ) : (
@@ -447,6 +467,15 @@ function PreviewDialog({
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-lg gap-2 bg-gradient-to-r from-rose-500 via-fuchsia-500 to-orange-400 text-white shadow-md hover:opacity-90"
+              onClick={() => onPostToSocial(item)}
+            >
+              <Send className="h-3.5 w-3.5" aria-hidden />
+              Post to Social
+            </Button>
             {current ? (
               <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => onCopyUrl(current)}>
                 <Copy className="mr-2 h-3.5 w-3.5" aria-hidden />
@@ -524,6 +553,15 @@ export function AdminMediaLibraryClient() {
   const [aiFabricId, setAiFabricId] = React.useState('')
   const [aiMediaType, setAiMediaType] = React.useState<'image' | 'video'>('image')
   const [isGeneratingAi, setIsGeneratingAi] = React.useState(false)
+
+  // Post to Social state
+  const [postToSocialOpen, setPostToSocialOpen] = React.useState(false)
+  const [postToSocialItem, setPostToSocialItem] = React.useState<MediaLibraryItem | null>(null)
+
+  const handlePostToSocial = React.useCallback((item: MediaLibraryItem) => {
+    setPostToSocialItem(item)
+    setPostToSocialOpen(true)
+  }, [])
 
   const handleGenerateAi = React.useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -948,7 +986,7 @@ export function AdminMediaLibraryClient() {
               view === 'grid' ? (
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                   {visibleItems.map((item) => (
-                    <MediaCard key={item.key || `item-${item.id}`} item={item} copy={t} onPreview={handlePreview} onCopyUrl={handleCopyUrl} />
+                    <MediaCard key={item.key || `item-${item.id}`} item={item} copy={t} onPreview={handlePreview} onCopyUrl={handleCopyUrl} onPostToSocial={handlePostToSocial} />
                   ))}
                 </div>
               ) : (
@@ -1022,6 +1060,17 @@ export function AdminMediaLibraryClient() {
         onOpenChange={setPreviewOpen}
         copy={t}
         onCopyUrl={handleCopyUrl}
+        onPostToSocial={(item) => {
+          setPreviewOpen(false)
+          handlePostToSocial(item)
+        }}
+      />
+
+      <PostToSocialDialog
+        open={postToSocialOpen}
+        onOpenChange={setPostToSocialOpen}
+        fabricId={postToSocialItem?.id ?? null}
+        fabricTitle={postToSocialItem?.title ?? ''}
       />
 
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
@@ -1029,6 +1078,9 @@ export function AdminMediaLibraryClient() {
           <form onSubmit={handleGenerateAi}>
             <DialogHeader>
               <DialogTitle>Generate or Regenerate AI Media</DialogTitle>
+              <DialogDescription>
+                Enter a Fabric ID and select a media type to trigger AI generation or force a regeneration.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div>

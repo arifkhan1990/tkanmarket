@@ -8,7 +8,6 @@ import {
 } from '@/constants'
 import { enqueueSocialAnalyticsSync, enqueueSocialPublish, enqueueSocialTokenRefresh } from '@/lib/queue/helpers'
 import { logger } from '@/lib/logger'
-import { AIService } from '@/services/ai.service'
 import { SocialAnalyticsService } from '@/services/social-analytics.service'
 import { SocialCredentialsService } from '@/services/social-credentials.service'
 import { SocialPublisherService } from '@/services/social-publisher.service'
@@ -47,24 +46,17 @@ export const socialWorker = new Worker(
     const total = payload.platforms.length
     let done = 0
 
-    let sharedContent = null
+    // ONE AI call produces complete, publish-ready content for every requested
+    // platform (caption, hashtags, reel script, metadata) and creates a DRAFT
+    // post per platform. Old drafts are preserved as version history.
     try {
-      sharedContent = await AIService.generateSocialContentShared(payload.entityId)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Shared content generation failed'
-      logger.warn('Social shared content generation failed', { fabricId: payload.entityId, message })
-    }
-
-    for (const platform of payload.platforms) {
-      try {
-        await SocialService.generatePlatformContent(payload.entityId, platform, sharedContent ?? undefined)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown social job error'
-        logger.warn('Social platform generation failed', { fabricId: payload.entityId, platform, message })
-      }
-      done += 1
+      const result = await SocialService.generateAllPlatformContent(payload.entityId, payload.platforms)
+      done = result.posts.length
       const pct = 10 + Math.round((done / total) * 85)
       await job.updateProgress(pct)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown social job error'
+      logger.error('Social generation failed', { fabricId: payload.entityId, message })
     }
     await SocialService.recomputeSocialScore(payload.entityId).catch(() => {})
     await job.updateProgress(100)
@@ -99,6 +91,7 @@ export const socialAnalyticsWorker = new Worker(
   QUEUE_NAMES.SOCIAL_ANALYTICS,
   async (job) => {
     if (job.name === 'analytics_scheduler_tick') {
+      const purged = await SocialAnalyticsService.purgeExpiredHistory()
       const ids = await SocialAnalyticsService.findPostIdsDueForSync({
         limit: 100,
         minIntervalMs: SOCIAL_ANALYTICS_SYNC_INTERVAL_MS
@@ -106,7 +99,7 @@ export const socialAnalyticsWorker = new Worker(
       for (const id of ids) {
         await enqueueSocialAnalyticsSync(id)
       }
-      logger.info('Analytics scheduler tick', { enqueued: ids.length })
+      logger.info('Analytics scheduler tick', { enqueued: ids.length, purgedHistoryRows: purged })
       return
     }
     const payload = AnalyticsJobSchema.parse(job.data)

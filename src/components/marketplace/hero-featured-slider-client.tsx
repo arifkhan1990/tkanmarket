@@ -124,6 +124,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
                     )}
                     sizes="(max-width: 768px) 100vw, (max-width: 1536px) 85vw, 1100px"
                     priority={i === 0}
+                    loading={i === 0 ? 'eager' : 'lazy'}
                   />
                 ) : (
                   <div className="absolute inset-0" style={toSwatchStyle(seed)} />

@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
 import { getDb } from '@/db'
 import { fabrics } from '@/db/schema/fabrics.schema'
-import { socialPosts } from '@/db/schema/social.schema'
+import { socialPosts, socialPostRevisions } from '@/db/schema/social.schema'
 import { generatedMedia } from '@/db/schema/generated-media.schema'
 import { SOCIAL_PLATFORM, QUEUE_NAMES } from '@/constants'
 import { addSocialJob, addVideoGenerationJob } from '@/lib/queue/helpers'
@@ -259,7 +259,11 @@ export class SocialService {
     const existing = await db
       .select({ id: socialPosts.id, status: socialPosts.status })
       .from(socialPosts)
-      .where(and(eq(socialPosts.fabricId, fabricId), eq(socialPosts.platform, platform)))
+      .where(and(
+        eq(socialPosts.fabricId, fabricId),
+        eq(socialPosts.platform, platform),
+        inArray(socialPosts.contentType, ['IMAGE_POST', 'CAROUSEL', 'PIN'])
+      ))
       .limit(1)
 
     try {
@@ -290,45 +294,65 @@ export class SocialService {
         recommendedPostingTime: content.recommendedPostingTime
       }
 
-      if (existing[0]?.id) {
-        await db
-          .update(socialPosts)
-          .set({
-            status: 'DRAFT',
-            captionText: draft.captionText,
-            hashtags: draft.hashtags,
-            scriptText: draft.scriptText,
-            contentType: draft.contentType,
-            platformMediaVariants: variants,
-            platformMetadata: metadata,
-            errorMessage: null,
-            updatedAt: sql`now()`
-          })
-          .where(eq(socialPosts.id, existing[0].id))
-        return draft
-      }
+      const targetContentType = contentTypeForPlatform(platform)
+      const prevRows = await db
+        .select({ id: socialPosts.id, revisionNumber: socialPosts.revisionNumber })
+        .from(socialPosts)
+        .where(and(
+          eq(socialPosts.fabricId, fabricId),
+          eq(socialPosts.platform, platform),
+          eq(socialPosts.contentType, targetContentType),
+          isNull(socialPosts.deletedAt)
+        ))
+        .orderBy(desc(socialPosts.revisionNumber))
+        .limit(1)
+      const prev = prevRows[0]
+      const revisionNumber = (prev?.revisionNumber ?? 0) + 1
 
-      await db.insert(socialPosts).values({
-        fabricId,
-        platform,
-        contentType: draft.contentType,
-        status: 'DRAFT',
-        captionText: draft.captionText,
-        hashtags: draft.hashtags,
-        scriptText: draft.scriptText,
-        mediaUrls: sourceMedia,
-        platformMediaVariants: variants,
-        platformMetadata: metadata,
-        scheduledAt: null,
-        publishedAt: null,
-        platformPostId: null,
-        reach: null,
-        likes: null,
-        shares: null,
-        linkClicks: null,
-        errorMessage: null,
-        updatedAt: new Date()
-      })
+      const [inserted] = await db
+        .insert(socialPosts)
+        .values({
+          fabricId,
+          platform,
+          contentType: targetContentType,
+          status: 'DRAFT',
+          captionText: draft.captionText,
+          hashtags: draft.hashtags,
+          scriptText: draft.scriptText,
+          mediaUrls: sourceMedia,
+          platformMediaVariants: variants,
+          platformMetadata: metadata,
+          revisionNumber,
+          supersedesPostId: prev?.id ?? null,
+          scheduledAt: null,
+          publishedAt: null,
+          platformPostId: null,
+          reach: null,
+          likes: null,
+          shares: null,
+          linkClicks: null,
+          errorMessage: null,
+          updatedAt: new Date()
+        })
+        .returning({ id: socialPosts.id })
+
+      const postId = inserted?.id
+      if (postId) {
+        const snapshot = {
+          ...metadata,
+          caption: draft.captionText,
+          hashtags: draft.hashtags,
+          script: draft.scriptText
+        }
+        await db.insert(socialPostRevisions).values({
+          postId,
+          revisionNumber,
+          changeType: prev ? 'REGENERATED' : 'GENERATED',
+          snapshot,
+          after: snapshot,
+          changedByUserId: null
+        })
+      }
 
       return draft
     } catch (err) {
@@ -371,18 +395,200 @@ export class SocialService {
   }
 
   /**
+   * Generate complete, publish-ready social content for the requested platforms
+   * in a single AI call and create one DRAFT post per platform. Unlike
+   * generatePlatformContent this always INSERTS a new post row (versioning) —
+   * previous drafts are preserved as history, never overwritten. Every insert
+   * bumps the post's revision_number, links it to the superseded post and writes
+   * a GENERATED entry in social_post_revisions.
+   *
+   * Concurrency-safe: a short-lived distributed lock per fabric prevents two
+   * overlapping generation runs (double AI spend + duplicate posts) when the
+   * admin clicks repeatedly or the auto flow and a manual job race.
+   */
+  public static async generateAllPlatformContent(fabricId: number, platforms: SocialPlatform[] = [...SOCIAL_PLATFORM]): Promise<{ created: number; posts: Array<{ id: number; platform: SocialPlatform }> }> {
+    const db = getDb()
+
+    const redis = getRedisClient()
+    const lockKey = `social:content:lock:${fabricId}`
+    let lockAcquired = false
+    if (redis) {
+      try {
+        lockAcquired = (await redis.set(lockKey, '1', 'EX', 300, 'NX')) === 'OK'
+      } catch (err) {
+        logger.warn('Failed to acquire social content generation lock', {
+          fabricId,
+          message: err instanceof Error ? err.message : 'Unknown error'
+        })
+      }
+    }
+    if (redis && !lockAcquired) {
+      logger.info('Social content generation skipped — another run is in progress', { fabricId })
+      return { created: 0, posts: [] }
+    }
+    const releaseLock = async () => {
+      if (redis && lockAcquired) {
+        try {
+          await redis.del(lockKey)
+        } catch {
+          // lock will expire on its own TTL
+        }
+      }
+    }
+
+    const rows = await db
+      .select({ id: fabrics.id, images: fabrics.images })
+      .from(fabrics)
+      .where(and(eq(fabrics.id, fabricId), isNull(fabrics.deletedAt)))
+      .limit(1)
+
+    const f = rows[0]
+    if (!f) {
+      await releaseLock()
+      throw new Error('Fabric not found')
+    }
+    const images = f.images ?? []
+    if (images.length < 1) {
+      await releaseLock()
+      throw new Error('Fabric has no images for social content')
+    }
+
+    const created: Array<{ id: number; platform: SocialPlatform }> = []
+
+    try {
+      const contentByPlatform = await AIService.generateSocialContentAll(fabricId)
+
+      for (const platform of platforms) {
+        const content = contentByPlatform[platform]
+        const hashtags = uniqHashtags(content.hashtags, maxHashtagsForPlatform(platform))
+        const sourceMedia = images.slice(0, 10)
+        const variantUrls = buildPlatformVariantSet(sourceMedia, platform)
+        const variants = { [platform]: variantUrls }
+
+        const metadata = {
+          postTitle: content.postTitle,
+          callToAction: content.callToAction,
+          specificationsSummary: content.specificationsSummary,
+          keyFeatures: content.keyFeatures,
+          targetAudience: content.targetAudience,
+          imagePrompt: content.imagePrompt,
+          imageOverlayText: content.imageOverlayText,
+          carouselSlides: content.carouselSlides,
+          recommendedPostingTime: content.recommendedPostingTime
+        }
+
+        const prevRows = await db
+          .select({ id: socialPosts.id, revisionNumber: socialPosts.revisionNumber })
+          .from(socialPosts)
+          .where(and(
+            eq(socialPosts.fabricId, fabricId),
+            eq(socialPosts.platform, platform),
+            inArray(socialPosts.contentType, ['IMAGE_POST', 'CAROUSEL', 'PIN']),
+            isNull(socialPosts.deletedAt)
+          ))
+          .orderBy(desc(socialPosts.revisionNumber))
+          .limit(1)
+        const prev = prevRows[0]
+        const revisionNumber = (prev?.revisionNumber ?? 0) + 1
+
+        const [post] = await db
+          .insert(socialPosts)
+          .values({
+            fabricId,
+            platform,
+            contentType: contentTypeForPlatform(platform),
+            status: 'DRAFT',
+            captionText: content.caption || null,
+            hashtags,
+            scriptText: content.reelScript,
+            mediaUrls: sourceMedia,
+            platformMediaVariants: variants,
+            platformMetadata: metadata,
+            revisionNumber,
+            supersedesPostId: prev?.id ?? null,
+            scheduledAt: null,
+            publishedAt: null,
+            platformPostId: null,
+            reach: null,
+            likes: null,
+            shares: null,
+            linkClicks: null,
+            errorMessage: null,
+            updatedAt: new Date()
+          })
+          .returning({ id: socialPosts.id })
+
+        const postId = post?.id
+        if (postId) {
+          created.push({ id: postId, platform })
+          const snapshot = {
+            ...metadata,
+            caption: content.caption || null,
+            hashtags,
+            script: content.reelScript
+          }
+          await db.insert(socialPostRevisions).values({
+            postId,
+            revisionNumber,
+            changeType: prev ? 'REGENERATED' : 'GENERATED',
+            snapshot,
+            after: snapshot,
+            changedByUserId: null
+          })
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Social generation failed'
+      logger.error('Social content generation failed', { fabricId, message })
+      for (const platform of platforms) {
+        await db.insert(socialPosts).values({
+          fabricId,
+          platform,
+          contentType: contentTypeForPlatform(platform),
+          status: 'FAILED',
+          captionText: null,
+          hashtags: null,
+          scriptText: null,
+          mediaUrls: images.slice(0, 10),
+          scheduledAt: null,
+          publishedAt: null,
+          platformPostId: null,
+          reach: null,
+          likes: null,
+          shares: null,
+          linkClicks: null,
+          errorMessage: message,
+          updatedAt: new Date()
+        })
+      }
+      throw err
+    } finally {
+      await releaseLock()
+    }
+
+    return { created: created.length, posts: created }
+  }
+
+  /**
    * Generate a video for a fabric — ONLY called when admin clicks the button.
-   * NOT auto-triggered. This creates a VIDEO_PENDING social post and enqueues
-   * the Omni Flash generation job.
+   * NOT auto-triggered. Creates a VIDEO_PENDING social post (one per platform)
+   * and enqueues a single Omni Flash generation job whose asset is reused
+   * across every platform post. Without an explicit platform this generates
+   * for ALL platforms.
    */
   public static async generateVideoForFabric(fabricId: number, options?: {
     prompt?: string
     duration?: ReelDuration
     platform?: SocialPlatform
+    platforms?: SocialPlatform[]
     imageUrl?: string
   }): Promise<{ postId: number; mediaId: number }> {
     const db = getDb()
-    const platform = options?.platform ?? 'INSTAGRAM'
+    const platforms = (options?.platforms && options.platforms.length > 0)
+      ? [...options.platforms]
+      : options?.platform
+        ? [options.platform]
+        : [...SOCIAL_PLATFORM]
     const duration = options?.duration ?? 8
 
     const fabricRows = await db
@@ -395,10 +601,10 @@ export class SocialService {
 
     const imageUrl = options?.imageUrl ?? (fabric.images?.[0] ?? undefined)
 
-    // Distributed lock: only one request may prepare+enqueue a video per
-    // fabric+platform at a time. Guards against concurrent admin clicks and
-    // doubles as a second idempotency barrier alongside the DB in-flight check.
-    const lockKey = `social:video:lock:${fabricId}:${platform}`
+    // Distributed lock: only one video preparation+enqueue per fabric at a time.
+    // Guards against concurrent admin clicks and doubles as a second idempotency
+    // barrier alongside the DB in-flight check.
+    const lockKey = `social:video:lock:${fabricId}`
     const redis = getRedisClient()
     let lockAcquired = false
     if (redis) {
@@ -407,7 +613,6 @@ export class SocialService {
       } catch (err) {
         logger.warn('Failed to acquire video generation lock', {
           fabricId,
-          platform,
           message: err instanceof Error ? err.message : 'Unknown error'
         })
       }
@@ -418,12 +623,11 @@ export class SocialService {
         .from(socialPosts)
         .where(and(
           eq(socialPosts.fabricId, fabricId),
-          eq(socialPosts.platform, platform),
           isNull(socialPosts.deletedAt)
         ))
         .orderBy(desc(socialPosts.createdAt))
         .limit(1)
-      logger.info('Video generation skipped — another request is already in progress', { fabricId, platform })
+      logger.info('Video generation skipped — another request is already in progress', { fabricId })
       return { postId: concurrent[0]?.id ?? 0, mediaId: 0 }
     }
 
@@ -437,48 +641,28 @@ export class SocialService {
       }
     }
 
-    // Idempotency: never create a duplicate post (or duplicate expensive video
-    // job) for the same fabric+platform. Reuse the latest non-final post.
-    const existingPost = await db
-      .select({ id: socialPosts.id, status: socialPosts.status })
-      .from(socialPosts)
-      .where(and(
-        eq(socialPosts.fabricId, fabricId),
-        eq(socialPosts.platform, platform),
-        inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'SCHEDULED', 'VIDEO_PENDING', 'FAILED'])
-      ))
-      .orderBy(socialPosts.createdAt)
-      .limit(1)
-
-    let postId = existingPost[0]?.id ?? null
-
-    // If a video for this fabric is already generating, return the existing post
-    // idempotently — do NOT enqueue a concurrent duplicate generation.
-    let videoInFlight = false
-    if (postId != null) {
-      const inFlight = await db
-        .select({ id: generatedMedia.id })
-        .from(generatedMedia)
+    // Idempotency per platform: never create a duplicate post for the same
+    // fabric+platform. Reuse the latest non-final post where one exists, so a
+    // single video asset is shared by one post per platform.
+    const platformPosts: Array<{ id: number; platform: SocialPlatform }> = []
+    for (const platform of platforms) {
+      const existing = await db
+        .select({ id: socialPosts.id })
+        .from(socialPosts)
         .where(and(
-          eq(generatedMedia.fabricId, fabricId),
-          eq(generatedMedia.type, 'video'),
-          inArray(generatedMedia.status, ['PENDING', 'PROCESSING'])
+          eq(socialPosts.fabricId, fabricId),
+          eq(socialPosts.platform, platform),
+          inArray(socialPosts.contentType, ['REEL_5', 'REEL_8', 'REEL_10']),
+          inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'SCHEDULED', 'VIDEO_PENDING', 'FAILED'])
         ))
+        .orderBy(desc(socialPosts.createdAt))
         .limit(1)
-      videoInFlight = inFlight.length > 0
-    }
 
-    if (postId != null && !videoInFlight) {
-      await db
-        .update(socialPosts)
-        .set({
-          status: 'VIDEO_PENDING',
-          errorMessage: null,
-          mediaUrls: (fabric.images ?? []).slice(0, 10),
-          updatedAt: sql`now()`
-        })
-        .where(eq(socialPosts.id, postId))
-    } else if (postId == null) {
+      if (existing[0]?.id) {
+        platformPosts.push({ id: existing[0].id, platform })
+        continue
+      }
+
       const [post] = await db
         .insert(socialPosts)
         .values({
@@ -491,17 +675,31 @@ export class SocialService {
         })
         .returning({ id: socialPosts.id })
 
-      postId = post?.id ?? null
-      if (!postId) throw new Error('Failed to create social post')
+      if (post?.id) platformPosts.push({ id: post.id, platform })
     }
 
-    if (videoInFlight) {
-      logger.info('Video generation skipped — an AI video is already in flight', { fabricId, platform, postId })
+    const primary = platformPosts[0]
+    if (!primary) throw new Error('Failed to create social post')
+    const postId = primary.id
+
+    // If a video for this fabric is already generating, return the existing post
+    // idempotently — do NOT enqueue a concurrent duplicate generation.
+    const inFlight = await db
+      .select({ id: generatedMedia.id })
+      .from(generatedMedia)
+      .where(and(
+        eq(generatedMedia.fabricId, fabricId),
+        eq(generatedMedia.type, 'video'),
+        inArray(generatedMedia.status, ['PENDING', 'PROCESSING'])
+      ))
+      .limit(1)
+    if (inFlight.length > 0) {
+      logger.info('Video generation skipped — an AI video is already in flight', { fabricId, postId })
       await releaseLock()
       return { postId, mediaId: 0 }
     }
 
-    // If the linked post already carries an AI reel script, reuse it as-is —
+    // If the primary post already carries an AI reel script, reuse it as-is —
     // never regenerate (and overwrite) the fabric's social content on every
     // video request. Only generate a fresh content package when no script
     // exists yet. The video worker picks the script up via findFabricReelScript.
@@ -519,35 +717,60 @@ export class SocialService {
       thumbnailPrompt = (existingMeta.imagePrompt as string | null) ?? null
       logger.info('Reusing existing reel script for video post', { fabricId, postId })
     } else {
-      // Generate the complete AI content package (title, caption, hashtags,
-      // reel script, CTA, target audience, thumbnail prompt, posting time) so
-      // the post is publish-ready. If the AI call fails, keep the bare post
-      // and still enqueue the video job — the worker retries content + thumbnail later.
+      // Generate the complete AI content package for EVERY platform in ONE call
+      // (title, caption, hashtags, reel script, CTA, target audience, thumbnail
+      // prompt, posting time) so every platform post is publish-ready. If the AI
+      // call fails, keep the bare posts and still enqueue the video job — the
+      // worker retries content + thumbnail later.
       try {
-        const content = await AIService.generateSocialContent(fabricId, platform, undefined, { requireReelScript: true })
-        const hashtags = uniqHashtags(content.hashtags, maxHashtagsForPlatform(platform))
-        thumbnailPrompt = content.imagePrompt
-        await db
-          .update(socialPosts)
-          .set({
-            captionText: content.caption,
-            hashtags,
-            scriptText: content.reelScript,
-            mediaUrls: (fabric.images ?? []).slice(0, 10),
-            platformMetadata: {
-              postTitle: content.postTitle,
-              callToAction: content.callToAction,
-              specificationsSummary: content.specificationsSummary,
-              keyFeatures: content.keyFeatures,
-              targetAudience: content.targetAudience,
-              imagePrompt: content.imagePrompt,
-              imageOverlayText: content.imageOverlayText,
-              carouselSlides: content.carouselSlides,
-              recommendedPostingTime: content.recommendedPostingTime
-            },
-            updatedAt: new Date()
-          })
-          .where(eq(socialPosts.id, postId))
+        const contentByPlatform = await AIService.generateSocialContentAll(fabricId)
+        thumbnailPrompt = contentByPlatform[primary.platform]?.imagePrompt ?? null
+        for (const entry of platformPosts) {
+          const content = contentByPlatform[entry.platform]
+          const hashtags = uniqHashtags(content.hashtags, maxHashtagsForPlatform(entry.platform))
+          const variantUrls = buildPlatformVariantSet((fabric.images ?? []).slice(0, 10), entry.platform)
+
+          const [existingRow] = await db
+            .select({
+              captionText: socialPosts.captionText,
+              hashtags: socialPosts.hashtags,
+              scriptText: socialPosts.scriptText,
+              platformMetadata: socialPosts.platformMetadata
+            })
+            .from(socialPosts)
+            .where(eq(socialPosts.id, entry.id))
+            .limit(1)
+
+          const keepCaption = existingRow?.captionText?.trim() ? existingRow.captionText : (content.caption || null)
+          const keepHashtags = (existingRow?.hashtags && existingRow.hashtags.length > 0) ? existingRow.hashtags : hashtags
+          const keepScript = existingRow?.scriptText?.trim() ? existingRow.scriptText : content.reelScript
+          const mergedMetadata = {
+            postTitle: content.postTitle,
+            callToAction: content.callToAction,
+            specificationsSummary: content.specificationsSummary,
+            keyFeatures: content.keyFeatures,
+            targetAudience: content.targetAudience,
+            imagePrompt: content.imagePrompt,
+            imageOverlayText: content.imageOverlayText,
+            carouselSlides: content.carouselSlides,
+            recommendedPostingTime: content.recommendedPostingTime,
+            ...(existingRow?.platformMetadata as Record<string, unknown> ?? {})
+          }
+
+          await db
+            .update(socialPosts)
+            .set({
+              status: 'VIDEO_PENDING',
+              captionText: keepCaption,
+              hashtags: keepHashtags,
+              scriptText: keepScript,
+              mediaUrls: (fabric.images ?? []).slice(0, 10),
+              platformMediaVariants: { [entry.platform]: variantUrls },
+              platformMetadata: mergedMetadata,
+              updatedAt: new Date()
+            })
+            .where(eq(socialPosts.id, entry.id))
+        }
       } catch (err) {
         logger.warn('AI social content generation for video post failed; continuing with bare post', {
           fabricId,
@@ -556,8 +779,8 @@ export class SocialService {
       }
     }
 
-    // The reel script is already stored on the post; generateForFabric merges the
-    // latest script into the video prompt via findFabricReelScript.
+    // One video asset is generated for the fabric; the video worker attaches it
+    // to every active platform post (see video-generation.service).
     await addVideoGenerationJob(fabricId, {
       fabricId,
       prompt: options?.prompt ?? '',
@@ -571,7 +794,7 @@ export class SocialService {
       .select({ id: generatedMedia.id })
       .from(generatedMedia)
       .where(eq(generatedMedia.fabricId, fabricId))
-      .orderBy(generatedMedia.createdAt)
+      .orderBy(desc(generatedMedia.createdAt))
       .limit(1)
 
     await releaseLock()

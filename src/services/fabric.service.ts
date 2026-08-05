@@ -3,10 +3,13 @@ import { countDistinct } from 'drizzle-orm/sql/functions/aggregate'
 
 import { getDb } from '@/db'
 import { fabricCategoryTerms } from '@/db/schema/fabric-category-terms.schema'
-import { fabricCategories, fabrics } from '@/db/schema/fabrics.schema'
+import { fabricCategories } from '@/db/schema/fabrics.schema'
+import { generatedMedia } from '@/db/schema/generated-media.schema'
+import { fabrics } from '@/db/schema/fabrics.schema'
 import { suppliers } from '@/db/schema/suppliers.schema'
 import type { FabricDetail, FabricSummary, JunctionCategoryCount, PaginatedResult } from '@/types/marketplace.types'
 import type { FabricQueryParams } from '@/lib/validations/fabric.validation'
+import { filterFabricGalleryImageUrls } from '@/lib/fabric-gallery-image-urls'
 
 type FabricJoinRow = {
   fabric: typeof fabrics.$inferSelect
@@ -39,9 +42,11 @@ type RelatedSummaryRow = {
   supplyTypeEn: string | null
   shipmentTime: string | null
   shipmentTimeEn: string | null
+  hasVideo: boolean
+  thumbnailUrl: string | null
 }
 
-function mapJoinRowToDetail(row: FabricJoinRow): FabricDetail {
+function mapJoinRowToDetail(row: FabricJoinRow, videoData: { videoUrl: string | null; thumbnailUrl: string | null }): FabricDetail {
   const aiProcessedAt = row.fabric.aiProcessedAt ? new Date(row.fabric.aiProcessedAt).toISOString() : null
 
   return {
@@ -55,7 +60,8 @@ function mapJoinRowToDetail(row: FabricJoinRow): FabricDetail {
     priceUsd: row.fabric.priceUsd ? String(row.fabric.priceUsd) : null,
     moq: row.fabric.moq,
     supplierName: row.supplier.name,
-    imageUrl: row.fabric.images?.[0] ?? null,
+    // Resolve Google Drive URLs → lh3 CDN, filter trackers
+    imageUrl: filterFabricGalleryImageUrls(row.fabric.images ?? undefined)[0] ?? null,
     tags: row.fabric.tags ?? [],
     tagsEn: row.fabric.tagsEn ?? null,
     color: row.fabric.color ?? null,
@@ -85,7 +91,11 @@ function mapJoinRowToDetail(row: FabricJoinRow): FabricDetail {
     socialScore: row.fabric.socialScore,
     viewsCount: row.fabric.viewsCount ?? 0,
     composition: row.fabric.composition ?? null,
-    images: row.fabric.images ?? [],
+    images: filterFabricGalleryImageUrls(row.fabric.images ?? undefined),
+    hasVideo: videoData.videoUrl !== null,
+    thumbnailUrl: videoData.thumbnailUrl,
+    videoUrl: videoData.videoUrl,
+    videoThumbnailUrl: videoData.thumbnailUrl,
 
     supplier: {
       id: row.supplier.id,
@@ -113,7 +123,7 @@ export class FabricService {
       priceUsd: r.priceUsd,
       moq: r.moq,
       supplierName: r.supplierName,
-      imageUrl: r.images?.[0] ?? null,
+      imageUrl: filterFabricGalleryImageUrls(r.images ?? undefined)[0] ?? null,
       tags: r.tags ?? [],
       tagsEn: r.tagsEn ?? null,
       color: r.color ?? null,
@@ -121,8 +131,40 @@ export class FabricService {
       supplyType: r.supplyType ?? null,
       supplyTypeEn: r.supplyTypeEn ?? null,
       shipmentTime: r.shipmentTime ?? null,
-      shipmentTimeEn: r.shipmentTimeEn ?? null
+      shipmentTimeEn: r.shipmentTimeEn ?? null,
+      hasVideo: r.hasVideo,
+      thumbnailUrl: r.thumbnailUrl
     }))
+  }
+
+  private static async fetchVideoDataMap(fabricIds: number[]): Promise<Map<number, { videoUrl: string | null; thumbnailUrl: string | null }>> {
+    if (fabricIds.length === 0) return new Map()
+
+    const db = getDb()
+    const rows = await db
+      .select({
+        fabricId: generatedMedia.fabricId,
+        url: generatedMedia.url,
+        thumbnailUrl: generatedMedia.thumbnailUrl
+      })
+      .from(generatedMedia)
+      .where(
+        and(
+          inArray(generatedMedia.fabricId, fabricIds),
+          eq(generatedMedia.type, 'video'),
+          eq(generatedMedia.status, 'COMPLETED'),
+          isNull(generatedMedia.deletedAt)
+        )
+      )
+      .orderBy(generatedMedia.createdAt)
+
+    const map = new Map<number, { videoUrl: string | null; thumbnailUrl: string | null }>()
+    for (const row of rows) {
+      if (!map.has(row.fabricId)) {
+        map.set(row.fabricId, { videoUrl: row.url ?? null, thumbnailUrl: row.thumbnailUrl ?? null })
+      }
+    }
+    return map
   }
 
   public static async getTopViewedSlugs(limit: number = 500): Promise<Array<{ slug: string }>> {
@@ -260,30 +302,38 @@ export class FabricService {
       .limit(params.limit)
       .offset(offset)
 
+    const fabricIds = rows.map((r) => r.id)
+    const videoDataMap = await this.fetchVideoDataMap(fabricIds)
+
     return {
-      items: rows.map((r) => ({
-        id: r.id,
-        slug: r.slug,
-        titleRu: r.titleRu,
-        titleEn: r.titleEn ?? null,
-        fabricType: r.fabricType,
-        gsm: r.gsm,
-        widthCm: r.widthCm,
-        priceUsd: r.priceUsd ? String(r.priceUsd) : null,
-        moq: r.moq,
-        supplierName: r.supplierName,
-        imageUrl: r.images?.[0] ?? null,
-        tags: r.tags ?? [],
-        tagsEn: r.tagsEn ?? null,
-        sku: r.sku,
-        socialScore: r.socialScore,
-        color: r.color ?? null,
-        colorEn: r.colorEn ?? null,
-        supplyType: r.supplyType ?? null,
-        supplyTypeEn: r.supplyTypeEn ?? null,
-        shipmentTime: r.shipmentTime ?? null,
-        shipmentTimeEn: r.shipmentTimeEn ?? null
-      })),
+      items: rows.map((r) => {
+        const video = videoDataMap.get(r.id) ?? { videoUrl: null, thumbnailUrl: null }
+        return {
+          id: r.id,
+          slug: r.slug,
+          titleRu: r.titleRu,
+          titleEn: r.titleEn ?? null,
+          fabricType: r.fabricType,
+          gsm: r.gsm,
+          widthCm: r.widthCm,
+          priceUsd: r.priceUsd ? String(r.priceUsd) : null,
+          moq: r.moq,
+          supplierName: r.supplierName,
+          imageUrl: r.images?.[0] ?? null,
+          tags: r.tags ?? [],
+          tagsEn: r.tagsEn ?? null,
+          sku: r.sku,
+          socialScore: r.socialScore,
+          color: r.color ?? null,
+          colorEn: r.colorEn ?? null,
+          supplyType: r.supplyType ?? null,
+          supplyTypeEn: r.supplyTypeEn ?? null,
+          shipmentTime: r.shipmentTime ?? null,
+          shipmentTimeEn: r.shipmentTimeEn ?? null,
+          hasVideo: video.videoUrl !== null,
+          thumbnailUrl: video.thumbnailUrl
+        }
+      }),
       total,
       supplierCount
     }
@@ -304,7 +354,10 @@ export class FabricService {
     const row = rows[0]
     if (!row) return null
 
-    return mapJoinRowToDetail(row)
+    const videoData = await this.fetchVideoDataMap([row.fabric.id])
+    const video = videoData.get(row.fabric.id) ?? { videoUrl: null, thumbnailUrl: null }
+
+    return mapJoinRowToDetail(row, video)
   }
 
   public static async getById(id: number): Promise<FabricDetail | null> {
@@ -322,7 +375,10 @@ export class FabricService {
     const row = rows[0]
     if (!row) return null
 
-    return mapJoinRowToDetail(row)
+    const videoData = await this.fetchVideoDataMap([row.fabric.id])
+    const video = videoData.get(row.fabric.id) ?? { videoUrl: null, thumbnailUrl: null }
+
+    return mapJoinRowToDetail(row, video)
   }
 
   /** Up to 4 approved fabrics, order preserved, missing ids skipped. */
@@ -340,9 +396,12 @@ export class FabricService {
       .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
       .where(and(isNull(fabrics.deletedAt), eq(fabrics.status, 'approved'), inArray(fabrics.id, unique)))
 
+    const videoDataMap = await this.fetchVideoDataMap(unique)
+
     const mapped = new Map<number, FabricDetail>()
     for (const row of rows) {
-      mapped.set(row.fabric.id, mapJoinRowToDetail(row))
+      const video = videoDataMap.get(row.fabric.id) ?? { videoUrl: null, thumbnailUrl: null }
+      mapped.set(row.fabric.id, mapJoinRowToDetail(row, video))
     }
 
     return unique.map((id) => mapped.get(id)).filter((f): f is FabricDetail => Boolean(f))
@@ -368,78 +427,106 @@ export class FabricService {
    * Uses a CTE (`self`) and filters by:
    * - same type OR overlapping tags (when tags exist), else same type only
    */
-  private static async getRelatedSingleQuery(args: {
-    by: 'id' | 'slug'
-    value: number | string
-    limit: number
-  }): Promise<FabricSummary[]> {
-    const db = getDb()
-    const approved = sql`'approved'`
+private static async getRelatedSingleQuery(args: {
+     by: 'id' | 'slug'
+     value: number | string
+     limit: number
+   }): Promise<FabricSummary[]> {
+     const db = getDb()
+     const approved = sql`'approved'`
 
-    const selfFilter =
-      args.by === 'id'
-        ? sql`${fabrics.id} = ${args.value as number}`
-        : sql`${fabrics.slug} = ${args.value as string}`
+     const selfFilter =
+       args.by === 'id'
+         ? sql`${fabrics.id} = ${args.value as number}`
+         : sql`${fabrics.slug} = ${args.value as string}`
 
-    const result = await db.execute<RelatedSummaryRow>(sql`
-      WITH self AS (
-        SELECT
-          ${fabrics.id} AS id,
-          ${fabrics.fabricType} AS fabric_type,
-          ${fabrics.tags} AS tags
-        FROM ${fabrics}
-        WHERE ${fabrics.deletedAt} IS NULL
-          AND ${fabrics.status} = ${approved}
-          AND ${selfFilter}
-        LIMIT 1
-      )
-      SELECT
-        ${fabrics.id} AS id,
-        ${fabrics.slug} AS slug,
-        ${fabrics.titleRu} AS "titleRu",
-        ${fabrics.titleEn} AS "titleEn",
-        ${fabrics.fabricType} AS "fabricType",
-        ${fabrics.gsm} AS gsm,
-        ${fabrics.widthCm} AS "widthCm",
-        ${fabrics.priceUsd}::text AS "priceUsd",
-        ${fabrics.moq} AS moq,
-        ${fabrics.tags} AS tags,
-        ${fabrics.tagsEn} AS "tagsEn",
-        ${fabrics.images} AS images,
-        ${fabrics.color} AS color,
-        ${fabrics.colorEn} AS "colorEn",
-        ${fabrics.supplyType} AS "supplyType",
-        ${fabrics.supplyTypeEn} AS "supplyTypeEn",
-        ${fabrics.shipmentTime} AS "shipmentTime",
-        ${fabrics.shipmentTimeEn} AS "shipmentTimeEn",
-        ${suppliers.name} AS "supplierName"
-      FROM ${fabrics}
-      INNER JOIN ${suppliers} ON ${fabrics.supplierId} = ${suppliers.id}
-      CROSS JOIN self
-      WHERE ${fabrics.deletedAt} IS NULL
-        AND ${fabrics.status} = ${approved}
-        AND ${fabrics.id} <> self.id
-        AND (
-          (
-            coalesce(cardinality(self.tags), 0) > 0
-            AND (
-              (self.fabric_type IS NOT NULL AND ${fabrics.fabricType} = self.fabric_type)
-              OR (${fabrics.tags} && self.tags)
-            )
-          )
-          OR
-          (
-            coalesce(cardinality(self.tags), 0) = 0
-            AND self.fabric_type IS NOT NULL
-            AND ${fabrics.fabricType} = self.fabric_type
-          )
-        )
-      LIMIT ${args.limit}
-    `)
+     const result = await db.execute<RelatedSummaryRow>(sql`
+       WITH self AS (
+         SELECT
+           ${fabrics.id} AS id,
+           ${fabrics.fabricType} AS fabric_type,
+           ${fabrics.tags} AS tags
+         FROM ${fabrics}
+         WHERE ${fabrics.deletedAt} IS NULL
+           AND ${fabrics.status} = ${approved}
+           AND ${selfFilter}
+         LIMIT 1
+       )
+       SELECT
+         ${fabrics.id} AS id,
+         ${fabrics.slug} AS slug,
+         ${fabrics.titleRu} AS "titleRu",
+         ${fabrics.titleEn} AS "titleEn",
+         ${fabrics.fabricType} AS "fabricType",
+         ${fabrics.gsm} AS gsm,
+         ${fabrics.widthCm} AS "widthCm",
+         ${fabrics.priceUsd}::text AS "priceUsd",
+         ${fabrics.moq} AS moq,
+         ${fabrics.tags} AS tags,
+         ${fabrics.tagsEn} AS "tagsEn",
+         ${fabrics.images} AS images,
+         ${fabrics.color} AS color,
+         ${fabrics.colorEn} AS "colorEn",
+         ${fabrics.supplyType} AS "supplyType",
+         ${fabrics.supplyTypeEn} AS "supplyTypeEn",
+         ${fabrics.shipmentTime} AS "shipmentTime",
+         ${fabrics.shipmentTimeEn} AS "shipmentTimeEn",
+         ${suppliers.name} AS "supplierName"
+       FROM ${fabrics}
+       INNER JOIN ${suppliers} ON ${fabrics.supplierId} = ${suppliers.id}
+       CROSS JOIN self
+       WHERE ${fabrics.deletedAt} IS NULL
+         AND ${fabrics.status} = ${approved}
+         AND ${fabrics.id} <> self.id
+         AND (
+           (
+             coalesce(cardinality(self.tags), 0) > 0
+             AND (
+               (self.fabric_type IS NOT NULL AND ${fabrics.fabricType} = self.fabric_type)
+               OR (${fabrics.tags} && self.tags)
+             )
+           )
+           OR
+           (
+             coalesce(cardinality(self.tags), 0) = 0
+             AND self.fabric_type IS NOT NULL
+             AND ${fabrics.fabricType} = self.fabric_type
+           )
+         )
+       LIMIT ${args.limit}
+     `)
 
-    const rows = Array.isArray(result) ? result : []
-    return this.mapRelatedSummaryRows(rows)
-  }
+     const rows = Array.isArray(result) ? result : []
+     const fabricIds = rows.map((r) => r.id)
+     const videoDataMap = await this.fetchVideoDataMap(fabricIds)
+
+return rows.map((r) => {
+      const video = videoDataMap.get(r.id) ?? { videoUrl: null, thumbnailUrl: null }
+      return {
+        id: r.id,
+        slug: r.slug,
+        titleRu: r.titleRu,
+        titleEn: r.titleEn ?? null,
+        fabricType: r.fabricType,
+        gsm: r.gsm,
+        widthCm: r.widthCm,
+        priceUsd: r.priceUsd,
+        moq: r.moq,
+        supplierName: r.supplierName,
+        imageUrl: r.images?.[0] ?? null,
+        tags: r.tags ?? [],
+        tagsEn: r.tagsEn ?? null,
+        color: r.color ?? null,
+        colorEn: r.colorEn ?? null,
+        supplyType: r.supplyType ?? null,
+        supplyTypeEn: r.supplyTypeEn ?? null,
+        shipmentTime: r.shipmentTime ?? null,
+        shipmentTimeEn: r.shipmentTimeEn ?? null,
+        hasVideo: video.videoUrl !== null,
+        thumbnailUrl: video.thumbnailUrl
+      }
+    })
+   }
 
   public static async getRelated(fabricId: number, limit: number = 8): Promise<FabricSummary[]> {
     return this.getRelatedSingleQuery({ by: 'id', value: fabricId, limit })
@@ -485,29 +572,37 @@ export class FabricService {
       )
       .limit(limit)
 
-    return rows.map((r) => ({
-      id: r.id,
-      slug: r.slug,
-      titleRu: r.titleRu,
-      titleEn: r.titleEn ?? null,
-      fabricType: r.fabricType,
-      gsm: r.gsm,
-      widthCm: r.widthCm,
-      priceUsd: r.priceUsd ? String(r.priceUsd) : null,
-      moq: r.moq,
-      supplierName: r.supplierName,
-      imageUrl: r.images?.[0] ?? null,
-      tags: r.tags ?? [],
-      tagsEn: r.tagsEn ?? null,
-      sku: r.sku,
-      socialScore: r.socialScore,
-      color: r.color ?? null,
-      colorEn: r.colorEn ?? null,
-      supplyType: r.supplyType ?? null,
-      supplyTypeEn: r.supplyTypeEn ?? null,
-      shipmentTime: r.shipmentTime ?? null,
-      shipmentTimeEn: r.shipmentTimeEn ?? null
-    }))
+    const fabricIds = rows.map((r) => r.id)
+    const videoDataMap = await this.fetchVideoDataMap(fabricIds)
+
+    return rows.map((r) => {
+      const video = videoDataMap.get(r.id) ?? { videoUrl: null, thumbnailUrl: null }
+      return {
+        id: r.id,
+        slug: r.slug,
+        titleRu: r.titleRu,
+        titleEn: r.titleEn ?? null,
+        fabricType: r.fabricType,
+        gsm: r.gsm,
+        widthCm: r.widthCm,
+        priceUsd: r.priceUsd ? String(r.priceUsd) : null,
+        moq: r.moq,
+        supplierName: r.supplierName,
+        imageUrl: r.images?.[0] ?? null,
+        tags: r.tags ?? [],
+        tagsEn: r.tagsEn ?? null,
+        sku: r.sku,
+        socialScore: r.socialScore,
+        color: r.color ?? null,
+        colorEn: r.colorEn ?? null,
+        supplyType: r.supplyType ?? null,
+        supplyTypeEn: r.supplyTypeEn ?? null,
+        shipmentTime: r.shipmentTime ?? null,
+        shipmentTimeEn: r.shipmentTimeEn ?? null,
+        hasVideo: video.videoUrl !== null,
+        thumbnailUrl: video.thumbnailUrl
+      }
+    })
   }
 
   /**

@@ -24,6 +24,8 @@ export function buyerWishlistRowToFabricSummary(row: BuyerWishlistItemRow): Fabr
     shipmentTime: null,
     shipmentTimeEn: null,
     sku: row.sku,
-    socialScore: null
+    socialScore: null,
+    hasVideo: false,
+    thumbnailUrl: null
   }
 }

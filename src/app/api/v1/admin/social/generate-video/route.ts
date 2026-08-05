@@ -11,7 +11,7 @@ const BodySchema = z.object({
   fabric_id: z.number().int().positive(),
   prompt: z.string().max(2000).optional(),
   duration: VideoDurationSchema.optional().default(8),
-  platform: SocialPlatformSchema.optional().default('INSTAGRAM'),
+  platform: SocialPlatformSchema.optional(),
   image_url: z.string().url().optional()
 })
 

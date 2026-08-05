@@ -12,7 +12,7 @@ const BodySchema = z.object({
   fabric_ids: z.array(z.number().int().positive()).min(1).max(50),
   prompt: z.string().max(2000).optional(),
   duration: VideoDurationSchema.optional().default(8),
-  platform: SocialPlatformSchema.optional().default('INSTAGRAM')
+  platform: SocialPlatformSchema.optional()
 })
 
 export async function POST(req: NextRequest) {

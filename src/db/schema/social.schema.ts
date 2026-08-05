@@ -1,6 +1,4 @@
-import { pgEnum, pgTable, text, integer, timestamp, jsonb, boolean, index, unique, uniqueIndex } from 'drizzle-orm/pg-core'
-import { sql } from 'drizzle-orm'
-
+import { pgEnum, pgTable, text, integer, timestamp, jsonb, boolean, date, index, unique, type AnyPgColumn } from 'drizzle-orm/pg-core'
 import { fabrics } from './fabrics.schema'
 import { users } from './users.schema'
 
@@ -16,6 +14,7 @@ export const socialPostStatusEnum = pgEnum('social_post_status', [
   'DRAFT',
   'APPROVED',
   'SCHEDULED',
+  'PUBLISHING',
   'PUBLISHED',
   'FAILED',
   'VIDEO_PENDING'
@@ -28,6 +27,25 @@ export const socialContentTypeEnum = pgEnum('social_content_type', [
   'CAROUSEL',
   'IMAGE_POST',
   'PIN'
+])
+
+export const socialPostReviewStateEnum = pgEnum('social_post_review_state', [
+  'NOT_REVIEWED',
+  'CONTENT_APPROVED',
+  'VIDEO_APPROVED',
+  'FULLY_APPROVED',
+  'REJECTED'
+])
+
+export const socialRevisionChangeTypeEnum = pgEnum('social_revision_change_type', [
+  'GENERATED',
+  'REGENERATED',
+  'CAPTION_EDITED',
+  'HASHTAGS_EDITED',
+  'SCRIPT_EDITED',
+  'SCHEDULED',
+  'REJECTED',
+  'RESTORED'
 ])
 
 export const socialCampaignStatusEnum = pgEnum('social_campaign_status', [
@@ -88,6 +106,15 @@ export const socialPosts = pgTable(
     platformPostId: text('platform_post_id'),
     platformPostUrl: text('platform_post_url'),
 
+    // Publish hardening (Phase 4): pin the exact account the post was published
+    // from, the content version published, and the media actually sent. Analytics
+    // always resolves credentials through publish_credential_id when present.
+    publishCredentialId: integer('publish_credential_id').references(() => socialPlatformCredentials.id, { onDelete: 'set null' }),
+    platformAccountId: text('platform_account_id'),
+    publishedVersion: integer('published_version'),
+    mediaSnapshot: jsonb('media_snapshot').$type<string[]>(),
+    timezone: text('timezone').notNull().default('UTC'),
+
     reach: integer('reach'),
     impressions: integer('impressions'),
     likes: integer('likes'),
@@ -97,6 +124,8 @@ export const socialPosts = pgTable(
     linkClicks: integer('link_clicks'),
     videoViews: integer('video_views'),
     analyticsSyncedAt: timestamp('analytics_synced_at', { withTimezone: true }),
+    analyticsSyncAttempts: integer('analytics_sync_attempts').notNull().default(0),
+    nextSyncAt: timestamp('next_sync_at', { withTimezone: true }),
 
     publishAttempts: integer('publish_attempts').notNull().default(0),
     lastPublishErrorAt: timestamp('last_publish_error_at', { withTimezone: true }),
@@ -106,6 +135,15 @@ export const socialPosts = pgTable(
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     scheduledByUserId: integer('scheduled_by_user_id').references(() => users.id, { onDelete: 'set null' }),
     publishedByUserId: integer('published_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+
+    // Review workflow (Phase 3): content and video approval tracked separately
+    // from the operational status so a post can be publishable only when fully reviewed.
+    reviewState: socialPostReviewStateEnum('review_state').notNull().default('NOT_REVIEWED'),
+    revisionNumber: integer('revision_number').notNull().default(1),
+    supersedesPostId: integer('supersedes_post_id').references((): AnyPgColumn => socialPosts.id, { onDelete: 'set null' }),
+    rejectionReason: text('rejection_reason'),
+    rejectedByUserId: integer('rejected_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    rejectedAt: timestamp('rejected_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -120,7 +158,31 @@ export const socialPosts = pgTable(
     socialPostsScheduledByIdx: index('social_posts_scheduled_by_idx').on(table.scheduledByUserId),
     socialPostsPublishedByIdx: index('social_posts_published_by_idx').on(table.publishedByUserId),
     socialPostsAnalyticsSyncedIdx: index('social_posts_analytics_synced_idx').on(table.publishedAt, table.analyticsSyncedAt),
-    socialPostsActiveUq: uniqueIndex('social_posts_active_uq').on(table.fabricId, table.platform).where(sql`${table.status} <> 'PUBLISHED' AND ${table.deletedAt} IS NULL`)
+    socialPostsFabricPlatformStatusIdx: index('social_posts_fabric_platform_status_idx').on(table.fabricId, table.platform, table.status),
+    socialPostsSupersedesIdx: index('social_posts_supersedes_idx').on(table.supersedesPostId),
+    socialPostsRejectedByIdx: index('social_posts_rejected_by_idx').on(table.rejectedByUserId),
+    socialPostsPublishCredentialIdx: index('social_posts_publish_credential_idx').on(table.publishCredentialId),
+    socialPostsNextSyncIdx: index('social_posts_next_sync_idx').on(table.status, table.nextSyncAt)
+  })
+)
+
+export const socialPostRevisions = pgTable(
+  'social_post_revisions',
+  {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    postId: integer('post_id')
+      .notNull()
+      .references(() => socialPosts.id, { onDelete: 'cascade' }),
+    revisionNumber: integer('revision_number').notNull(),
+    changeType: socialRevisionChangeTypeEnum('change_type').notNull(),
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>(),
+    before: jsonb('before').$type<Record<string, unknown>>(),
+    after: jsonb('after').$type<Record<string, unknown>>(),
+    changedByUserId: integer('changed_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    socialRevisionsPostIdx: index('social_post_revisions_post_idx').on(table.postId, table.createdAt)
   })
 )
 
@@ -198,6 +260,35 @@ export const socialPostAnalyticsHistory = pgTable(
   },
   (table) => ({
     socialAnalyticsHistoryPostIdx: index('social_post_analytics_history_post_idx').on(table.postId, table.capturedAt)
+  })
+)
+
+// Daily rollup of published-post analytics. One row per post per day, written on
+// every analytics sync. Kept for the full retention window so dashboards can
+// render time-series charts even after raw history rows are purged.
+export const socialAnalyticsDaily = pgTable(
+  'social_analytics_daily',
+  {
+    id: integer('id').generatedAlwaysAsIdentity().primaryKey(),
+    postId: integer('post_id')
+      .notNull()
+      .references(() => socialPosts.id, { onDelete: 'cascade' }),
+    platform: socialPlatformEnum('platform').notNull(),
+    metricDate: date('metric_date').notNull(),
+    reach: integer('reach').notNull().default(0),
+    impressions: integer('impressions').notNull().default(0),
+    likes: integer('likes').notNull().default(0),
+    comments: integer('comments').notNull().default(0),
+    shares: integer('shares').notNull().default(0),
+    saves: integer('saves').notNull().default(0),
+    linkClicks: integer('link_clicks').notNull().default(0),
+    videoViews: integer('video_views').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    socialAnalyticsDailyPostDateUq: unique('social_analytics_daily_post_date_uq').on(table.postId, table.metricDate),
+    socialAnalyticsDailyPlatformDateIdx: index('social_analytics_daily_platform_date_idx').on(table.platform, table.metricDate)
   })
 )
 

@@ -56,6 +56,7 @@ export function AdminAiPromptLogsClient() {
     success_rate_pct: 0
   })
   const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState('25')
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
 
@@ -77,7 +78,7 @@ export function AdminAiPromptLogsClient() {
       setLoading(true)
       const params = new URLSearchParams()
       params.set('page', page.toString())
-      params.set('limit', '25')
+      params.set('limit', limit)
       if (q) params.set('q', q)
       if (source && source !== 'all') params.set('source', source)
       if (model && model !== 'all') params.set('model', model)
@@ -101,7 +102,7 @@ export function AdminAiPromptLogsClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, q, source, model, status, fromDate, toDate])
+  }, [page, limit, q, source, model, status, fromDate, toDate])
 
   useEffect(() => {
     fetchLogs()
@@ -443,8 +444,29 @@ export function AdminAiPromptLogsClient() {
 
         {/* Pagination with explicit page numbers */}
         <div className="flex flex-col gap-3 sm:flex-row items-center justify-between border-t px-4 py-3">
-          <div className="text-xs text-muted-foreground">
-            Showing page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span> ({totalItems} total logs)
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="text-xs text-muted-foreground">
+              Showing page <span className="font-semibold">{page}</span> of <span className="font-semibold">{totalPages}</span> ({totalItems} total logs)
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Rows:</span>
+              <Select
+                value={limit}
+                onValueChange={(val) => {
+                  setLimit(val)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="h-8 w-20 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex items-center gap-1 flex-wrap">
             <Button

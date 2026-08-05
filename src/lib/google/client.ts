@@ -118,6 +118,7 @@ type CallGeminiOptions = {
   maxRetries?: number
   responseFormat?: 'json_object' | 'text'
   context?: AiCallContext
+  inlineImages?: string[]
 }
 
 export async function callGemini(messages: ChatMessage[], options?: CallGeminiOptions): Promise<string> {
@@ -138,15 +139,34 @@ export async function callGemini(messages: ChatMessage[], options?: CallGeminiOp
     fabricId: ctx?.fabricId,
     messageCount: messages.length,
     promptPreview: truncatedPrompt,
-    promptLength: fullPrompt.length
+    promptLength: fullPrompt.length,
+    hasInlineImages: Boolean(options?.inlineImages && options.inlineImages.length > 0)
   })
 
   const ai = getGenAiClient()
 
-  const contents = userMessages.map((m) => ({
-    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: m.content }]
-  }))
+  const contents = userMessages.map((m, idx) => {
+    const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [{ text: m.content }]
+    if (idx === userMessages.length - 1 && options?.inlineImages && options.inlineImages.length > 0) {
+      for (const imgDataUrl of options.inlineImages.slice(0, 3)) {
+        const match = imgDataUrl.match(/^data:([^;]+);base64,(.+)$/)
+        if (match && match[1] && match[2]) {
+          let mime = match[1].trim()
+          if (!mime || mime.includes('octet-stream')) mime = 'image/jpeg'
+          parts.unshift({
+            inlineData: {
+              mimeType: mime,
+              data: match[2]
+            }
+          })
+        }
+      }
+    }
+    return {
+      role: m.role === 'assistant' ? 'model' as const : 'user' as const,
+      parts
+    }
+  })
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -281,22 +301,37 @@ export async function generateGeminiImage(
   if (options?.inputImages && options.inputImages.length > 0) {
     for (const img of options.inputImages) {
       if (typeof img === 'string') {
-        if (img.startsWith('data:')) {
-          const [header, base64Data] = img.split(',')
-          const mimeType = header ? header.split(';')[0]?.replace('data:', '') : null
-          if (mimeType && base64Data) {
-            userParts.push({ inlineData: { mimeType, data: base64Data } })
+        let cleanImg = img.trim()
+        // If data url has truncation or invalid header, guard it
+        if (cleanImg.startsWith('data:')) {
+          const commaIdx = cleanImg.indexOf(',')
+          if (commaIdx !== -1) {
+            const header = cleanImg.slice(0, commaIdx)
+            const base64Data = cleanImg.slice(commaIdx + 1)
+            let mimeType = header.split(';')[0]?.replace('data:', '')?.trim()
+            if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
+              mimeType = 'image/jpeg'
+            }
+            if (mimeType && base64Data && base64Data.length > 100) {
+              userParts.push({ inlineData: { mimeType, data: base64Data } })
+            } else {
+              logger.warn('Skipped input image due to insufficient base64 data length or truncation', { length: base64Data?.length })
+            }
           }
         }
-      } else if (img?.inlineData) {
-        userParts.push(img)
+      } else if (img?.inlineData?.data && img.inlineData.data.length > 100) {
+        let mimeType = img.inlineData.mimeType?.trim()
+        if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
+          mimeType = 'image/jpeg'
+        }
+        userParts.push({ inlineData: { mimeType, data: img.inlineData.data } })
       }
     }
   }
 
   userParts.push({ text: prompt })
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const result = await withTimeout(
         ai.models.generateContent({
@@ -306,7 +341,7 @@ export async function generateGeminiImage(
             responseModalities: ['image', 'text']
           }
         }),
-        90_000,
+        120_000,
         'Gemini image generation'
       )
 
@@ -316,10 +351,15 @@ export async function generateGeminiImage(
         const mimeType = p.inlineData?.mimeType
         const data = p.inlineData?.data
         if (mimeType?.startsWith('image/') && data) {
-          urls.push(`data:${mimeType};base64,${data}`)
+          // Verify data completeness (check if base64 padding or length looks truncated)
+          if (data.length > 500) {
+            urls.push(`data:${mimeType};base64,${data}`)
+          } else {
+            logger.warn('Discarded returned image part because it appears truncated', { length: data.length })
+          }
         }
       }
-      if (urls.length === 0) throw new Error('Gemini returned no images')
+      if (urls.length === 0) throw new Error('Gemini returned no valid non-truncated images')
 
       const resultDataUrls = urls.slice(0, numberOfImages)
       const durationMs = Date.now() - startTime
@@ -418,6 +458,7 @@ export async function generateOmniFlashVideo(
     model?: string
     durationSeconds?: number
     aspectRatio?: string
+    inputImages?: string[]
     context?: AiCallContext
   }
 ): Promise<Buffer[]> {
@@ -426,24 +467,48 @@ export async function generateOmniFlashVideo(
 
   const startTime = Date.now()
   const truncatedPrompt = prompt.length > 300 ? `${prompt.slice(0, 300)}...` : prompt
+  const hasInputImages = Boolean(options?.inputImages && options.inputImages.length > 0)
   logger.info('Omni Flash video generation prompt', {
     model,
     source: ctx?.source,
     fabricId: ctx?.fabricId,
     durationSeconds: options?.durationSeconds,
     aspectRatio: options?.aspectRatio,
+    hasInputImages,
     promptPreview: truncatedPrompt,
     promptLength: prompt.length
   })
 
   const ai = getGenAiClient()
 
+  // Build step_list content parts (Content_2 union: TextContent | ImageContent)
+  const stepContentParts: Array<{ type: 'text'; text: string } | { type: 'image'; mime_type: string; data: string }> = []
+  if (options?.inputImages && options.inputImages.length > 0) {
+    for (const img of options.inputImages.slice(0, 3)) {
+      if (typeof img === 'string' && img.startsWith('data:')) {
+        const match = img.match(/^data:([^;]+);base64,(.+)$/)
+        if (match && match[1] && match[2]) {
+          let mime = match[1].trim()
+          if (!mime || mime.includes('octet-stream')) mime = 'image/jpeg'
+          stepContentParts.push({ type: 'image', mime_type: mime, data: match[2] })
+        }
+      }
+    }
+  }
+  stepContentParts.push({ type: 'text', text: prompt })
+
+  // Use step_list format (Array<UserInputStep>) — required by the Interactions API.
+  // turn_list format ([{role, content}]) causes a 400 error.
+  const inputPayload: Array<{ type: 'user_input'; content: typeof stepContentParts }> = [
+    { type: 'user_input', content: stepContentParts }
+  ]
+
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const result = await withTimeout(
         ai.interactions.create({
           model,
-          input: prompt
+          input: inputPayload as any
         }),
         120_000,
         'Omni Flash video generation'

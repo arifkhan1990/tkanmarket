@@ -2604,6 +2604,7 @@ export const enMessages = {
       rejectedToast: 'Rejected',
       wholesaleSimulator: 'Wholesale simulator',
       wholesaleTiers: 'Wholesale tiers',
+      socialContent: 'Social content',
       descriptionEn: 'Description (EN)',
       usageRu: 'Usage (RU)',
       usageEn: 'Usage (EN)',

@@ -130,6 +130,13 @@ export type SocialContentShared = {
   recommendedPostingTime: string | null
 }
 
+export type SocialPlatformContent = SocialContentShared & {
+  caption: string
+  hashtags: string[]
+}
+
+export type SocialContentByPlatform = Record<SocialPlatform, SocialPlatformContent>
+
 export type GeneratedImage = {
   id: number
   fabricId: number

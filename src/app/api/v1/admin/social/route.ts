@@ -13,7 +13,8 @@ const QuerySchema = z.object({
   platform: z.enum(['INSTAGRAM', 'TIKTOK', 'PINTEREST', 'FACEBOOK', 'YOUTUBE']).optional(),
   status: z.enum(['DRAFT', 'APPROVED', 'SCHEDULED', 'PUBLISHED', 'FAILED', 'VIDEO_PENDING']).optional(),
   search: z.string().trim().max(200).optional(),
-  content_type: z.enum(['REEL_5', 'REEL_8', 'REEL_10', 'CAROUSEL', 'IMAGE_POST', 'PIN']).optional()
+  content_type: z.enum(['REEL_5', 'REEL_8', 'REEL_10', 'CAROUSEL', 'IMAGE_POST', 'PIN']).optional(),
+  fabric_id: z.coerce.number().int().positive().optional()
 })
 
 export async function GET(req: NextRequest) {
@@ -27,10 +28,19 @@ export async function GET(req: NextRequest) {
       platform: url.searchParams.get('platform') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       search: url.searchParams.get('search') ?? undefined,
-      content_type: url.searchParams.get('content_type') ?? undefined
+      content_type: url.searchParams.get('content_type') ?? undefined,
+      fabric_id: url.searchParams.get('fabric_id') ?? undefined
     })
 
-    const result = await SocialAdminService.list(query)
+    const result = await SocialAdminService.list({
+      page: query.page,
+      limit: query.limit,
+      platform: query.platform,
+      status: query.status,
+      search: query.search,
+      contentType: query.content_type,
+      fabricId: query.fabric_id
+    })
     return apiSuccess(result)
   } catch (err) {
     return toApiErrorResponse(err)

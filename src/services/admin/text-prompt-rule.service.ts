@@ -91,24 +91,26 @@ export class TextPromptRuleService {
     rawTitle?: string | null
     rawDescription?: string | null
   }): Record<string, string> {
+    const effectiveTitle = fabric.titleEn || fabric.rawTitle || fabric.titleRu || fabric.fabricType || 'Textile Fabric'
+    const effectiveDesc = fabric.descriptionEn || fabric.rawDescription || fabric.descriptionRu || `High quality B2B ${fabric.fabricType ?? 'textile'} fabric`
     return {
-      title_en: fabric.titleEn ?? '',
-      title_ru: fabric.titleRu ?? '',
+      title_en: effectiveTitle,
+      title_ru: fabric.titleRu ?? effectiveTitle,
       fabric_type: fabric.fabricType ?? '',
       color: fabric.color ?? '',
       composition: fabric.composition ?? '',
       tags: fabric.tags ?? '',
       supply_type: fabric.supplyType ?? '',
-      description_en: fabric.descriptionEn ?? '',
-      description_ru: fabric.descriptionRu ?? '',
+      description_en: effectiveDesc,
+      description_ru: fabric.descriptionRu ?? effectiveDesc,
       gsm: fabric.gsm != null ? String(fabric.gsm) : '',
       width_cm: fabric.widthCm != null ? String(fabric.widthCm) : '',
       moq: fabric.moq != null ? String(fabric.moq) : '',
       price_usd: fabric.priceUsd ?? '',
       source_url: fabric.sourceUrl ?? '',
       images: fabric.images ?? '',
-      raw_title: fabric.rawTitle ?? '',
-      raw_description: fabric.rawDescription ?? ''
+      raw_title: effectiveTitle,
+      raw_description: effectiveDesc
     }
   }
 

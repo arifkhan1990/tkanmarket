@@ -1,3 +1,5 @@
+import { resolveR2Url } from '@/lib/storage/r2'
+
 /** Hosts that appear in scraped HTML but are not product photos (analytics, beacons). */
 const FABRIC_GALLERY_IMAGE_HOST_BLOCKLIST = new Set<string>(['stat.made-in-china.com'])
 
@@ -35,8 +37,9 @@ export function filterFabricGalleryImageUrls(urls: string[] | null | undefined):
   const out: string[] = []
   const seen = new Set<string>()
   for (const raw of urls) {
-    if (!isFabricGalleryImageUrl(raw)) continue
-    const u = raw.trim()
+    const resolved = resolveR2Url(raw)
+    if (!resolved || !isFabricGalleryImageUrl(resolved)) continue
+    const u = resolved.trim()
     if (seen.has(u)) continue
     seen.add(u)
     out.push(u)

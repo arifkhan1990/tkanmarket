@@ -13,6 +13,7 @@ import { computeLeadScore } from '@/lib/lead-score'
 import type { LeadStatus } from '@/types/marketplace.types'
 import { ValidationError, NotFoundError } from '@/lib/errors'
 import { count } from 'drizzle-orm'
+import { filterFabricGalleryImageUrls } from '@/lib/fabric-gallery-image-urls'
 
 export class LeadService {
   private static async requireUserIdByEmail(email: string): Promise<number> {
@@ -218,7 +219,7 @@ export class LeadService {
                 id: r.fabricId,
                 slug: r.fabricSlug,
                 titleRu: r.fabricTitleRu,
-                imageUrl: r.fabricImages?.[0] ?? null,
+                imageUrl: filterFabricGalleryImageUrls(r.fabricImages ?? undefined)[0] ?? null,
                 supplierName: r.supplierName
               }
             : null,
@@ -291,7 +292,7 @@ export class LeadService {
             id: row.fabric.id,
             slug: row.fabric.slug,
             titleRu: row.fabric.titleRu,
-            imageUrl: row.fabric.images?.[0] ?? null,
+            imageUrl: filterFabricGalleryImageUrls(row.fabric.images ?? undefined)[0] ?? null,
             supplierName: row.supplier.name
           }
         : null

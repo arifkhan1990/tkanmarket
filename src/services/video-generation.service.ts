@@ -10,6 +10,7 @@ import { uploadBuffer } from '@/lib/storage/r2'
 import { logger } from '@/lib/logger'
 import { PromptRuleService } from '@/services/admin/prompt-rule.service'
 import { AIService } from '@/services/ai.service'
+import { fetchImagesAsInlineData, ImageGenerationService } from '@/services/image-generation.service'
 import { FabricConsistencyGuardService } from '@/services/fabric-consistency-guard.service'
 import { MEDIA_VERSION_RETENTION, REEL_DURATIONS } from '@/constants'
 import type { ReelDuration } from '@/constants'
@@ -145,10 +146,16 @@ async function ensurePostContent(
 }
 
 /** Generates a 9:16 thumbnail cover for the reel and returns its R2 URL (or null). */
-async function generateVideoThumbnail(fabricId: number, mediaId: number, prompt: string | null): Promise<string | null> {
+async function generateVideoThumbnail(
+  fabricId: number,
+  mediaId: number,
+  prompt: string | null,
+  inputImages?: string[]
+): Promise<string | null> {
   try {
     const urls = await generateGeminiImage(prompt?.trim() ? prompt : DEFAULT_THUMBNAIL_PROMPT, {
       aspectRatio: '9:16',
+      inputImages,
       context: { source: 'video', fabricId }
     })
     const sourceUri = urls[0]
@@ -195,7 +202,8 @@ export class VideoGenerationService {
         tags: fabrics.tags,
         supplyType: fabrics.supplyType,
         descriptionEn: fabrics.descriptionEn,
-        descriptionRu: fabrics.descriptionRu
+        descriptionRu: fabrics.descriptionRu,
+        images: fabrics.images
       })
       .from(fabrics)
       .where(and(eq(fabrics.id, fabricId), isNull(fabrics.deletedAt)))
@@ -233,6 +241,25 @@ export class VideoGenerationService {
       ? (fabric.composition as Array<{ material?: string }>).map((c) => c.material ?? '').filter(Boolean).join(', ')
       : ''
     const tagsStr = Array.isArray(fabric.tags) ? fabric.tags.join(', ') : ''
+
+    let inputImages = await fetchImagesAsInlineData(fabric.images)
+    if (inputImages.length === 0) {
+      const generatedImgRows = await db
+        .select({ url: generatedMedia.url })
+        .from(generatedMedia)
+        .where(and(
+          eq(generatedMedia.fabricId, fabricId),
+          eq(generatedMedia.type, 'image'),
+          eq(generatedMedia.status, 'COMPLETED'),
+          isNull(generatedMedia.deletedAt)
+        ))
+        .orderBy(desc(generatedMedia.createdAt))
+        .limit(3)
+      const genUrls = generatedImgRows.map((r) => r.url).filter((u): u is string => Boolean(u))
+      if (genUrls.length > 0) {
+        inputImages = await fetchImagesAsInlineData(genUrls)
+      }
+    }
 
     let prompt = options?.prompt
     let durationSeconds = options?.durationSeconds
@@ -282,6 +309,12 @@ export class VideoGenerationService {
         : basePrompt
     }
 
+    const visualAnchor = inputImages.length > 0
+      ? `[MANDATORY VISUAL REFERENCE]: The input reference image(s) show the EXACT physical fabric sample. The video MUST strictly display THIS EXACT fabric sample—maintaining 100% precision in color, pattern, weave structure, surface texture, drape, and visual identity without any alteration or color shift.`
+      : `[MANDATORY COLOR & TEXTURE CONSTRAINTS]: Strictly adhere to the fabric specifications: Color "${fabric.color ?? 'Original'}", Type "${fabric.fabricType ?? 'Textile'}", Weight ${fabric.gsm ?? ''} GSM. Do NOT alter color, hue, pattern, or texture.`
+
+    prompt = `${visualAnchor}\n\n${prompt}`
+
     if (prompt && !prompt.includes('FABRIC_CONSISTENCY_INSTRUCTION')) {
       prompt = `${prompt} [System Rule: ${PromptRuleService.FABRIC_CONSISTENCY_INSTRUCTION}]`
     }
@@ -291,6 +324,51 @@ export class VideoGenerationService {
     durationSeconds = normalizeReelDuration(durationSeconds)
     aspectRatio = aspectRatio ?? '9:16'
 
+    // ── AI generation first — DB record is only created on success ──────────
+    // This ensures no orphaned PENDING/FAILED records are left behind when the
+    // AI model rejects or times out the request.
+    let videoBuffer: Buffer
+    try {
+      logger.info('Starting Omni Flash video generation', { fabricId, durationSeconds, aspectRatio })
+
+      const videoBuffers = await generateOmniFlashVideo(prompt, {
+        durationSeconds,
+        aspectRatio,
+        inputImages,
+        context: { source: 'video', fabricId }
+      })
+
+      const buf = videoBuffers[0]
+      if (!buf) throw new Error('No video data returned from Omni Flash')
+      videoBuffer = buf
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+
+      // Log the failure to the activity log but do NOT write any generated_media row.
+      await db.insert(fabricActivityLog).values({
+        fabricId,
+        actorId: null,
+        eventType: 'VIDEO_GENERATION_FAILED',
+        message: 'Omni Flash video generation failed — no DB record created',
+        payload: { error: message, durationSeconds, aspectRatio },
+        updatedAt: new Date()
+      })
+
+      throw err
+    }
+
+    // ── AI succeeded — now persist the result ────────────────────────────────
+    const tempKey = `fabrics/${fabricId}/videos/tmp-${Date.now()}.mp4`
+    let storageUrl: string | null = null
+    try {
+      storageUrl = await uploadBuffer(videoBuffer, tempKey, 'video/mp4')
+    } catch (storageErr) {
+      logger.warn('R2 video upload failed, will store without remote URL', {
+        fabricId,
+        message: (storageErr as Error)?.message
+      })
+    }
+
     const [inserted] = await db
       .insert(generatedMedia)
       .values({
@@ -299,7 +377,9 @@ export class VideoGenerationService {
         type: 'video',
         mediaType: `REEL_${durationSeconds}`,
         prompt,
-        status: 'PENDING',
+        status: 'COMPLETED',
+        url: storageUrl,
+        fileSizeBytes: videoBuffer.length,
         provider: 'gemini',
         providerModel: 'gemini-omni-flash-preview',
         aspectRatio,
@@ -307,153 +387,121 @@ export class VideoGenerationService {
       })
       .returning()
 
-    if (!inserted) throw new Error('Failed to create media record')
+    if (!inserted) throw new Error('Failed to create media record after successful generation')
     const mediaId = inserted.id
 
-    try {
-      await db
-        .update(generatedMedia)
-        .set({ status: 'PROCESSING', updatedAt: sql`now()` })
-        .where(eq(generatedMedia.id, mediaId))
-
-      const videoBuffers = await generateOmniFlashVideo(prompt, {
-        durationSeconds,
-        aspectRatio,
-        context: { source: 'video', fabricId }
-      })
-
-      const videoBuffer = videoBuffers[0]
-      if (!videoBuffer) throw new Error('No video data returned from Omni Flash')
-
-      const key = `fabrics/${fabricId}/videos/${mediaId}.mp4`
-      let storageUrl: string | null = null
+    // Rename the R2 object to the canonical key now that we have the mediaId.
+    // If renaming fails, the file is still accessible via the temp key.
+    if (storageUrl) {
+      const canonicalKey = `fabrics/${fabricId}/videos/${mediaId}.mp4`
       try {
-        storageUrl = await uploadBuffer(videoBuffer, key, 'video/mp4')
-      } catch (storageErr) {
-        logger.warn('R2 video upload failed, storing without remote URL', {
-          mediaId,
-          message: (storageErr as Error)?.message
-        })
-      }
-
-      // Mark this version COMPLETED, supersede older active versions of the same
-      // scope, and enforce the retention cap — all in one transaction so the
-      // version lineage stays consistent even if a later step crashes.
-      await db.transaction(async (tx) => {
-        await tx
+        const renamedUrl = await uploadBuffer(videoBuffer, canonicalKey, 'video/mp4')
+        await db
           .update(generatedMedia)
-          .set({
-            status: 'COMPLETED',
-            url: storageUrl,
-            fileSizeBytes: videoBuffer.length,
-            updatedAt: sql`now()`
-          })
+          .set({ url: renamedUrl, updatedAt: sql`now()` })
           .where(eq(generatedMedia.id, mediaId))
-
-        await tx.insert(fabricActivityLog).values({
-          fabricId,
-          actorId: null,
-          eventType: 'VIDEO_GENERATED',
-          message: 'Omni Flash video generation completed',
-          payload: { mediaId, storageUrl, fileSizeBytes: videoBuffer.length },
-          updatedAt: new Date()
-        })
-
-        const scopeParts: SQL[] = [
-          eq(generatedMedia.fabricId, fabricId),
-          eq(generatedMedia.type, 'video'),
-          isNull(generatedMedia.deletedAt)
-        ]
-        if (options?.socialPostId != null) scopeParts.push(eq(generatedMedia.socialPostId, options.socialPostId))
-        const scopeCond = and(...scopeParts)
-
-        const superseded = await tx
-          .update(generatedMedia)
-          .set({ status: 'SUPERSEDED', supersededByMediaId: mediaId, updatedAt: sql`now()` })
-          .where(and(scopeCond, ne(generatedMedia.id, mediaId), eq(generatedMedia.status, 'COMPLETED')))
-          .returning({ id: generatedMedia.id })
-
-        if (superseded.length > 0) {
-          await tx.insert(fabricActivityLog).values({
-            fabricId,
-            actorId: null,
-            eventType: 'VIDEO_SUPERSEDED',
-            message: `${superseded.length} previous video version(s) superseded by media ${mediaId}`,
-            payload: { supersededIds: superseded.map((r) => r.id), byMediaId: mediaId },
-            updatedAt: new Date()
-          })
-        }
-
-        // Retention: keep the newest MEDIA_VERSION_RETENTION versions, soft-delete
-        // the older ones. R2 objects of pruned versions are freed by the cleanup sweep.
-        const pruneCandidates = await tx
-          .select({ id: generatedMedia.id })
-          .from(generatedMedia)
-          .where(and(scopeCond, inArray(generatedMedia.status, ['COMPLETED', 'SUPERSEDED'])))
-          .orderBy(desc(generatedMedia.createdAt))
-          .offset(MEDIA_VERSION_RETENTION)
-
-        if (pruneCandidates.length > 0) {
-          await tx
-            .update(generatedMedia)
-            .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
-            .where(inArray(generatedMedia.id, pruneCandidates.map((c) => c.id)))
-        }
-      })
-
-      // Generate a thumbnail cover and keep the linked social post in sync
-      // (media_urls must start with the video, then the cover, then fabric images).
-      if (options?.socialPostId) {
-        const thumbnailUrl = await generateVideoThumbnail(fabricId, mediaId, options.thumbnailPrompt ?? linkedImagePrompt)
-        if (thumbnailUrl) {
-          await db
-            .update(generatedMedia)
-            .set({ thumbnailUrl, updatedAt: sql`now()` })
-            .where(eq(generatedMedia.id, mediaId))
-        }
-        try {
-          const linkedRows = await db
-            .select({ mediaUrls: socialPosts.mediaUrls, images: fabrics.images })
-            .from(socialPosts)
-            .innerJoin(fabrics, eq(socialPosts.fabricId, fabrics.id))
-            .where(and(eq(socialPosts.id, options.socialPostId), isNull(socialPosts.deletedAt)))
-            .limit(1)
-          const linked = linkedRows[0]
-          if (linked) {
-            const next = dedupeUrls([storageUrl, thumbnailUrl, ...(linked.mediaUrls ?? []), ...(linked.images ?? [])])
-            await db
-              .update(socialPosts)
-              .set({ mediaUrls: next.length > 0 ? next : null, updatedAt: new Date() })
-              .where(eq(socialPosts.id, options.socialPostId))
-          }
-        } catch (err) {
-          logger.warn('Failed to sync linked social post media', {
-            fabricId,
-            postId: options.socialPostId,
-            message: (err as Error)?.message
-          })
-        }
+        storageUrl = renamedUrl
+      } catch {
+        // Keep the temp key URL — not critical
       }
+    }
 
-      return { mediaId, storageUrl }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      await db
-        .update(generatedMedia)
-        .set({ status: 'FAILED', errorMessage: message, updatedAt: sql`now()` })
-        .where(eq(generatedMedia.id, mediaId))
-
-      await db.insert(fabricActivityLog).values({
+    // Mark this version COMPLETED, supersede older active versions of the same
+    // scope, and enforce the retention cap — all in one transaction so the
+    // version lineage stays consistent even if a later step crashes.
+    await db.transaction(async (tx) => {
+      await tx.insert(fabricActivityLog).values({
         fabricId,
         actorId: null,
-        eventType: 'VIDEO_GENERATION_FAILED',
-        message: 'Omni Flash video generation failed',
-        payload: { mediaId, error: message },
+        eventType: 'VIDEO_GENERATED',
+        message: 'Omni Flash video generation completed',
+        payload: { mediaId, storageUrl, fileSizeBytes: videoBuffer.length },
         updatedAt: new Date()
       })
 
-      throw err
+      const scopeParts: SQL[] = [
+        eq(generatedMedia.fabricId, fabricId),
+        eq(generatedMedia.type, 'video'),
+        isNull(generatedMedia.deletedAt)
+      ]
+      if (options?.socialPostId != null) scopeParts.push(eq(generatedMedia.socialPostId, options.socialPostId))
+      const scopeCond = and(...scopeParts)
+
+      const superseded = await tx
+        .update(generatedMedia)
+        .set({ status: 'SUPERSEDED', supersededByMediaId: mediaId, updatedAt: sql`now()` })
+        .where(and(scopeCond, ne(generatedMedia.id, mediaId), eq(generatedMedia.status, 'COMPLETED')))
+        .returning({ id: generatedMedia.id })
+
+      if (superseded.length > 0) {
+        await tx.insert(fabricActivityLog).values({
+          fabricId,
+          actorId: null,
+          eventType: 'VIDEO_SUPERSEDED',
+          message: `${superseded.length} previous video version(s) superseded by media ${mediaId}`,
+          payload: { supersededIds: superseded.map((r) => r.id), byMediaId: mediaId },
+          updatedAt: new Date()
+        })
+      }
+
+      // Retention: keep the newest MEDIA_VERSION_RETENTION versions, soft-delete
+      // the older ones. R2 objects of pruned versions are freed by the cleanup sweep.
+      const pruneCandidates = await tx
+        .select({ id: generatedMedia.id })
+        .from(generatedMedia)
+        .where(and(scopeCond, inArray(generatedMedia.status, ['COMPLETED', 'SUPERSEDED'])))
+        .orderBy(desc(generatedMedia.createdAt))
+        .offset(MEDIA_VERSION_RETENTION)
+
+      if (pruneCandidates.length > 0) {
+        await tx
+          .update(generatedMedia)
+          .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
+          .where(inArray(generatedMedia.id, pruneCandidates.map((c) => c.id)))
+      }
+    })
+
+    // Generate a thumbnail cover and keep the linked social post in sync
+    // (media_urls must start with the video, then the cover, then fabric images).
+    if (options?.socialPostId) {
+      const thumbnailUrl = await generateVideoThumbnail(fabricId, mediaId, options.thumbnailPrompt ?? linkedImagePrompt, inputImages)
+      if (thumbnailUrl) {
+        await db
+          .update(generatedMedia)
+          .set({ thumbnailUrl, updatedAt: sql`now()` })
+          .where(eq(generatedMedia.id, mediaId))
+      }
+      try {
+        // Cross-platform reuse: one generated video is shared by every active
+        // (non-final) platform post of the fabric, so the same asset can be
+        // published to Instagram, TikTok, Facebook, YouTube and Pinterest.
+        const linkedRows = await db
+          .select({ id: socialPosts.id, mediaUrls: socialPosts.mediaUrls, images: fabrics.images })
+          .from(socialPosts)
+          .innerJoin(fabrics, eq(socialPosts.fabricId, fabrics.id))
+          .where(and(
+            eq(socialPosts.fabricId, fabricId),
+            inArray(socialPosts.contentType, ['REEL_5', 'REEL_8', 'REEL_10']),
+            inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'SCHEDULED', 'VIDEO_PENDING']),
+            isNull(socialPosts.deletedAt)
+          ))
+        for (const linked of linkedRows) {
+          const next = dedupeUrls([storageUrl, thumbnailUrl, ...(linked.mediaUrls ?? []), ...(linked.images ?? [])])
+          await db
+            .update(socialPosts)
+            .set({ mediaUrls: next.length > 0 ? next : null, updatedAt: new Date() })
+            .where(eq(socialPosts.id, linked.id))
+        }
+      } catch (err) {
+        logger.warn('Failed to sync social post media', {
+          fabricId,
+          postId: options.socialPostId,
+          message: (err as Error)?.message
+        })
+      }
     }
+
+    return { mediaId, storageUrl }
   }
 
   static async getByFabric(fabricId: number) {

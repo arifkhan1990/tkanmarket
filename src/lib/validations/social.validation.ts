@@ -85,8 +85,11 @@ export const UpdatePostSchema = z
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field required' })
 export type UpdatePostInput = z.infer<typeof UpdatePostSchema>
 
+const TIMEZONE_REGEX = /^(UTC|UTC[+-]\d{1,2}(?::?\d{2})?|(?:Etc\/GMT[+-]\d{1,2}|[A-Za-z_]+\/[A-Za-z_]+))$/
+
 export const SchedulePostSchema = z.object({
-  scheduled_at: FutureDateSchema
+  scheduled_at: FutureDateSchema,
+  timezone: z.string().trim().min(1).max(64).regex(TIMEZONE_REGEX, 'Invalid IANA timezone').optional().default('UTC')
 })
 export type SchedulePostInput = z.infer<typeof SchedulePostSchema>
 
@@ -108,7 +111,8 @@ export type BulkIdsInput = z.infer<typeof BulkIdsSchema>
 
 export const BulkScheduleSchema = z.object({
   post_ids: z.array(z.coerce.number().int().positive()).min(1).max(500),
-  scheduled_at: FutureDateSchema
+  scheduled_at: FutureDateSchema,
+  timezone: z.string().trim().min(1).max(64).regex(TIMEZONE_REGEX, 'Invalid IANA timezone').optional().default('UTC')
 })
 export type BulkScheduleInput = z.infer<typeof BulkScheduleSchema>
 

@@ -13,7 +13,7 @@ const RouteParamsSchema = z.object({
 const BodySchema = z.object({
   prompt: z.string().max(2000).optional(),
   image_url: z.string().url().optional(),
-  platform: z.enum(['INSTAGRAM', 'TIKTOK', 'PINTEREST', 'FACEBOOK', 'YOUTUBE']).optional().default('INSTAGRAM')
+  platform: z.enum(['INSTAGRAM', 'TIKTOK', 'PINTEREST', 'FACEBOOK', 'YOUTUBE']).optional()
 }).optional()
 
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
