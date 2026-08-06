@@ -39,6 +39,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Textarea } from '@/components/ui/textarea'
 import { FabricManagementSecondaryFilters } from '@/components/admin/fabric-management-secondary-filters'
 import { fabricListDatePresetToRange } from '@/lib/admin/fabric-list-date-presets'
@@ -354,7 +355,8 @@ export function FabricManagementTable({
   const getDisplayTitle = React.useCallback(
     (row: AdminFabricListItem): string => {
       // Russian-first by default; English admins still see the slug under it.
-      return row.title_ru || row.slug
+      const raw = row.title_ru || row.slug
+      return raw.length > 40 ? `${raw.slice(0, 40)}…` : raw
     },
     []
   )
@@ -401,12 +403,27 @@ export function FabricManagementTable({
       {
         id: 'title',
         header: t.title,
-        cell: ({ row }) => (
-          <div className="min-w-0">
+        cell: ({ row }) => {
+          const fullTitle = row.original.title_ru || row.original.slug
+          const titleNode = (
             <div className="truncate text-sm font-semibold text-on-surface">{getDisplayTitle(row.original)}</div>
-            <div className="truncate font-mono text-xs text-outline">{row.original.slug}</div>
-          </div>
-        )
+          )
+          return (
+            <div className="min-w-0">
+              {fullTitle.length > 40 ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>{titleNode}</TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-md">
+                    <p className="break-words text-sm font-semibold text-on-surface">{fullTitle}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                titleNode
+              )}
+              <div className="truncate font-mono text-xs text-outline">{row.original.slug}</div>
+            </div>
+          )
+        }
       },
       {
         id: 'supplier',

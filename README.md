@@ -11,7 +11,7 @@ NextAuth v5 · Zod · OpenAI/Google Gemini.
 
 ```bash
 npm install
-npm run dev            # Next dev on :3006
+npm run dev            # Next dev on :3000
 npm run dev:turbo      # Turbopack dev
 npm run typecheck:all  # app + workers typecheck
 npm run lint

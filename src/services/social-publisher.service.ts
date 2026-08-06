@@ -14,6 +14,27 @@ import { consumePublishSlot, releasePublishSlot } from '@/lib/social/rate-limite
 import { PlatformPublishError, getPublisher } from '@/lib/social/platforms'
 import { resolveR2Url } from '@/lib/storage/r2'
 
+/**
+ * Extracts the provider's own error detail from a PlatformPublishError. Most
+ * APIs (Facebook/Instagram Graph, TikTok, Pinterest, YouTube) return a nested
+ * `{ error: { message } }` payload; surfacing it makes worker logs actionable
+ * instead of the generic "XXX API 400 Bad Request".
+ */
+function describePlatformError(err: PlatformPublishError): string {
+  const body = asRecord(err.body)
+  const nested = asRecord(body.error)
+  const detail = stringOrNull(nested.message) ?? stringOrNull(nested.error_user_msg) ?? stringOrNull(body.message)
+  return detail ? `${err.message} — ${detail}` : err.message
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
 export interface PublishResultSummary {
   postId: number
   platform: string
@@ -41,6 +62,7 @@ export class SocialPublisherService {
         publishAttempts: socialPosts.publishAttempts,
         revisionNumber: socialPosts.revisionNumber,
         publishCredentialId: socialPosts.publishCredentialId,
+        reviewState: socialPosts.reviewState,
         fabricImages: fabrics.images
       })
       .from(socialPosts)
@@ -116,6 +138,36 @@ export class SocialPublisherService {
       throw new ValidationError(msg)
     }
 
+    // ── 1.5 Implicit approval ──
+    //    "Publish now" must publish immediately without a separate approve step.
+    //    A DRAFT (never approved) or FAILED (previously failed) post is approved
+    //    here — recording approval semantics — before the atomic claim below.
+    if (post.status === 'DRAFT' || post.status === 'FAILED') {
+      const nextReviewState = post.reviewState === 'FULLY_APPROVED' ? 'FULLY_APPROVED' : 'CONTENT_APPROVED'
+      const approved = await db
+        .update(socialPosts)
+        .set({
+          status: 'APPROVED',
+          reviewState: nextReviewState,
+          approvedByUserId: params.actorUserId,
+          approvedAt: new Date(),
+          rejectionReason: null,
+          rejectedByUserId: null,
+          rejectedAt: null,
+          updatedAt: new Date()
+        })
+        .where(and(eq(socialPosts.id, post.id), inArray(socialPosts.status, ['DRAFT', 'FAILED']), isNull(socialPosts.deletedAt)))
+        .returning({ id: socialPosts.id })
+      if (approved.length > 0) {
+        await db.insert(socialActivityLog).values({
+          postId: post.id,
+          action: 'APPROVED',
+          actorUserId: params.actorUserId,
+          details: { autoApproved: true }
+        })
+      }
+    }
+
     // ── 2. Atomic claim — the row-level gate that makes double-publish impossible.
     //    Only one concurrent worker can flip APPROVED/SCHEDULED → PUBLISHING; losers
     //    get zero rows back and exit without touching the platform. A post that lost
@@ -130,7 +182,7 @@ export class SocialPublisherService {
       .where(
         and(
           eq(socialPosts.id, post.id),
-          inArray(socialPosts.status, ['APPROVED', 'SCHEDULED']),
+          inArray(socialPosts.status, ['APPROVED', 'SCHEDULED', 'VIDEO_PENDING']),
           lt(socialPosts.publishAttempts, SOCIAL_MAX_PUBLISH_ATTEMPTS),
           isNull(socialPosts.deletedAt)
         )
@@ -196,6 +248,13 @@ export class SocialPublisherService {
         details: { platform, platformPostId: result.platformPostId, platformPostUrl: result.platformPostUrl, credentialId: credential.id, accountId: credential.accountId, publishedVersion: post.revisionNumber }
       })
 
+      await this.notifyAdmins({
+        type: 'social_publish_success',
+        title: 'Social post published',
+        body: `${platform} post #${post.id} published successfully`,
+        data: { postId: post.id, platform, platformPostId: result.platformPostId, platformPostUrl: result.platformPostUrl }
+      })
+
       return {
         postId: post.id,
         platform,
@@ -205,7 +264,7 @@ export class SocialPublisherService {
     } catch (err) {
       await releasePublishSlot(platform, credential.accountId)
       const retryable = err instanceof PlatformPublishError ? err.retryable : true
-      const message = err instanceof Error ? err.message : 'Unknown publish error'
+      const message = err instanceof PlatformPublishError ? describePlatformError(err) : err instanceof Error ? err.message : 'Unknown publish error'
       const nextAttempts = post.publishAttempts + 1
       const terminal = !retryable || nextAttempts >= SOCIAL_MAX_PUBLISH_ATTEMPTS
 
@@ -325,7 +384,7 @@ export class SocialPublisherService {
       .where(
         and(
           inArray(socialPosts.id, params.postIds),
-          inArray(socialPosts.status, ['DRAFT', 'FAILED']),
+          inArray(socialPosts.status, ['DRAFT', 'FAILED', 'VIDEO_PENDING']),
           isNull(socialPosts.deletedAt)
         )
       )
@@ -358,7 +417,7 @@ export class SocialPublisherService {
       .where(
         and(
           inArray(socialPosts.id, params.postIds),
-          inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'FAILED']),
+          inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'FAILED', 'VIDEO_PENDING', 'SCHEDULED']),
           isNull(socialPosts.deletedAt)
         )
       )

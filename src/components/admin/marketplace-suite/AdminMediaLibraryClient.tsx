@@ -23,7 +23,6 @@ import {
   List,
   RefreshCw,
   Search,
-  Send,
   Sparkles,
   X
 } from 'lucide-react'
@@ -46,8 +45,6 @@ import type {
   MediaLibrarySort,
   MediaLibraryStatusFilter
 } from '@/types/admin-media-library.types'
-
-import { PostToSocialDialog } from '@/components/admin/social/post-to-social-dialog'
 
 type ViewMode = 'grid' | 'list'
 type CopyType = ReturnType<typeof useI18n>['messages']['admin']['mediaLibraryPage']
@@ -176,14 +173,12 @@ function MediaCard({
   item,
   copy,
   onPreview,
-  onCopyUrl,
-  onPostToSocial
+  onCopyUrl
 }: {
   item: MediaLibraryItem
   copy: CopyType
   onPreview: (item: MediaLibraryItem) => void
   onCopyUrl: (url: string) => void
-  onPostToSocial: (item: MediaLibraryItem) => void
 }) {
   return (
     <div
@@ -266,17 +261,6 @@ function MediaCard({
               <ExternalLink className="h-3 w-3" aria-hidden />
               {copy.openFabric}
             </Link>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 rounded-lg p-0 text-primary border-primary/30 hover:bg-primary/10"
-            onClick={() => onPostToSocial(item)}
-            aria-label="Post to social media"
-            title="Post to social media"
-          >
-            <Send className="h-3.5 w-3.5" aria-hidden />
           </Button>
           {item.primaryImage ? (
             <Button
@@ -378,15 +362,13 @@ function PreviewDialog({
   open,
   onOpenChange,
   copy,
-  onCopyUrl,
-  onPostToSocial
+  onCopyUrl
 }: {
   item: MediaLibraryItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
   copy: CopyType
   onCopyUrl: (url: string) => void
-  onPostToSocial: (item: MediaLibraryItem) => void
 }) {
   const [index, setIndex] = React.useState(0)
   React.useEffect(() => {
@@ -467,15 +449,6 @@ function PreviewDialog({
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              className="rounded-lg gap-2 bg-gradient-to-r from-rose-500 via-fuchsia-500 to-orange-400 text-white shadow-md hover:opacity-90"
-              onClick={() => onPostToSocial(item)}
-            >
-              <Send className="h-3.5 w-3.5" aria-hidden />
-              Post to Social
-            </Button>
             {current ? (
               <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={() => onCopyUrl(current)}>
                 <Copy className="mr-2 h-3.5 w-3.5" aria-hidden />
@@ -555,14 +528,6 @@ export function AdminMediaLibraryClient() {
   const [isGeneratingAi, setIsGeneratingAi] = React.useState(false)
 
   // Post to Social state
-  const [postToSocialOpen, setPostToSocialOpen] = React.useState(false)
-  const [postToSocialItem, setPostToSocialItem] = React.useState<MediaLibraryItem | null>(null)
-
-  const handlePostToSocial = React.useCallback((item: MediaLibraryItem) => {
-    setPostToSocialItem(item)
-    setPostToSocialOpen(true)
-  }, [])
-
   const handleGenerateAi = React.useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     const fid = parseInt(aiFabricId, 10)
@@ -986,7 +951,7 @@ export function AdminMediaLibraryClient() {
               view === 'grid' ? (
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
                   {visibleItems.map((item) => (
-                    <MediaCard key={item.key || `item-${item.id}`} item={item} copy={t} onPreview={handlePreview} onCopyUrl={handleCopyUrl} onPostToSocial={handlePostToSocial} />
+                    <MediaCard key={item.key || `item-${item.id}`} item={item} copy={t} onPreview={handlePreview} onCopyUrl={handleCopyUrl} />
                   ))}
                 </div>
               ) : (
@@ -1060,17 +1025,6 @@ export function AdminMediaLibraryClient() {
         onOpenChange={setPreviewOpen}
         copy={t}
         onCopyUrl={handleCopyUrl}
-        onPostToSocial={(item) => {
-          setPreviewOpen(false)
-          handlePostToSocial(item)
-        }}
-      />
-
-      <PostToSocialDialog
-        open={postToSocialOpen}
-        onOpenChange={setPostToSocialOpen}
-        fabricId={postToSocialItem?.id ?? null}
-        fabricTitle={postToSocialItem?.title ?? ''}
       />
 
       <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>

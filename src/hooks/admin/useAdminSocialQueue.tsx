@@ -9,6 +9,7 @@ import type { AdminSocialAiBatchInput, AdminSocialCreatePostInput } from '@/type
 
 import { TableRowSkeleton } from '@/components/common/LoadingSkeleton/TableRowSkeleton'
 import { useI18n } from '@/hooks/useI18n'
+import { useSocialPublishTracker } from '@/hooks/admin/useSocialPublishTracker'
 import { createAdminSocialPost, runAdminSocialAiBatch } from '@/services/admin-social-actions-api.service'
 
 export function useAdminSocialQueue(params: {
@@ -74,6 +75,7 @@ export function SocialQueueSkeleton() {
 export function useSocialMutations() {
   const queryClient = useQueryClient()
   const { messages } = useI18n()
+  const { track, PublishTrackers } = useSocialPublishTracker()
 
   const approve = useMutation({
     mutationFn: async (id: number) => {
@@ -103,10 +105,11 @@ export function useSocialMutations() {
       }
       return json.data
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['admin-social'] })
       queryClient.invalidateQueries({ queryKey: ['admin-social-stats'] })
-      toast.success(messages.admin.socialPage.publishOk)
+      toast.success(messages.admin.socialPage.publishQueued)
+      track(id)
     },
     onError: (e: Error) => toast.error(e.message)
   })
@@ -167,7 +170,7 @@ export function useSocialMutations() {
     onError: (e: Error) => toast.error(e.message)
   })
 
-  return { approve, publish, schedule, createPost, aiBatch }
+  return { approve, publish, schedule, createPost, aiBatch, PublishTrackers }
 }
 
 export function SocialQueueTableSkeleton() {

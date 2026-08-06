@@ -29,6 +29,29 @@ function captionOf(post: PlatformPostInput): string {
   return `${post.captionText}${tags}`.trim()
 }
 
+function isVideoUrl(url: string): boolean {
+  const lower = url.toLowerCase().split('?')[0] ?? ''
+  return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.m4v')
+}
+
+async function postPhoto(credential: PlatformCredential, pageId: string, url: string, caption?: string, published = true): Promise<string> {
+  const body = new URLSearchParams({ access_token: credential.accessToken })
+  body.set('url', url)
+  body.set('published', published ? 'true' : 'false')
+  if (caption) body.set('message', caption)
+  const res = await platformFetch(
+    `${GRAPH}/${pageId}/photos`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() },
+    { platform: 'FACEBOOK' }
+  )
+  const payload = asRecord(res.json)
+  const id = stringOrNull(payload.id)
+  if (!id) {
+    throw new PlatformPublishError('Facebook photo upload failed', { platform: 'FACEBOOK', status: res.status, retryable: true, body: payload })
+  }
+  return id
+}
+
 export class FacebookPublisher extends BasePlatformPublisher {
   readonly platform: SocialPlatform = 'FACEBOOK'
 
@@ -128,20 +151,87 @@ export class FacebookPublisher extends BasePlatformPublisher {
 
   async publish(credential: PlatformCredential, post: PlatformPostInput): Promise<PlatformPublishResult> {
     const caption = captionOf(post)
-    const [first] = post.mediaUrls
     const pageId = credential.accountId
+
+    const imageUrls = post.mediaUrls.filter((u) => !isVideoUrl(u))
+    const videoUrl = post.mediaUrls.find(isVideoUrl)
+
+    // Video (Reel / video post) → /videos endpoint
+    if (post.contentType.startsWith('REEL_') || videoUrl) {
+      const url = videoUrl ?? imageUrls[0]
+      if (!url) {
+        throw new PlatformPublishError('Facebook video post requires a video URL', { platform: this.platform, status: 400, retryable: false })
+      }
+      const body = new URLSearchParams({ access_token: credential.accessToken, description: caption })
+      body.set('file_url', url)
+      const res = await platformFetch(`${GRAPH}/${pageId}/videos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      }, { platform: this.platform })
+      const payload = asRecord(res.json)
+      const postId = stringOrNull(payload.id) ?? stringOrNull(payload.post_id)
+      if (!postId) {
+        throw new PlatformPublishError('Facebook video publish missing post id', { platform: this.platform, status: res.status, retryable: true, body: payload })
+      }
+      return { platformPostId: postId, platformPostUrl: `https://www.facebook.com/watch/?v=${postId}`, rawResponse: payload }
+    }
+
+    // Carousel → stage each photo unpublished, then attach in one feed post
+    if (post.contentType === 'CAROUSEL' && imageUrls.length >= 2) {
+      const children: string[] = []
+      for (const url of imageUrls.slice(0, 20)) {
+        const photoId = await postPhoto(credential, pageId, url, undefined, false)
+        children.push(photoId)
+      }
+      const body = new URLSearchParams({ access_token: credential.accessToken, message: caption })
+      body.set('attached_media', JSON.stringify(children.map((id) => ({ media_fbid: id }))))
+      const res = await platformFetch(`${GRAPH}/${pageId}/feed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      }, { platform: this.platform })
+      const payload = asRecord(res.json)
+      const postId = stringOrNull(payload.id) ?? stringOrNull(payload.post_id)
+      if (!postId) {
+        throw new PlatformPublishError('Facebook carousel publish missing post id', { platform: this.platform, status: res.status, retryable: true, body: payload })
+      }
+      return { platformPostId: postId, platformPostUrl: `https://www.facebook.com/${postId}`, rawResponse: payload }
+    }
+
+    // Single image → /photos
+    const [first] = imageUrls
+    if (first) {
+      const body = new URLSearchParams({ access_token: credential.accessToken, message: caption })
+      body.set('url', first)
+      const res = await platformFetch(`${GRAPH}/${pageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      }, { platform: this.platform })
+      const payload = asRecord(res.json)
+      const postId = stringOrNull(payload.post_id) ?? stringOrNull(payload.id)
+      if (!postId) {
+        throw new PlatformPublishError('Facebook publish missing post id', { platform: this.platform, status: res.status, retryable: true, body: payload })
+      }
+      return {
+        platformPostId: postId,
+        platformPostUrl: `https://www.facebook.com/${postId}`,
+        rawResponse: payload
+      }
+    }
+
+    // Text-only → /feed
     const body = new URLSearchParams({ access_token: credential.accessToken, message: caption })
-    if (first) body.set('url', first)
-    const endpoint = first ? 'photos' : 'feed'
-    const res = await platformFetch(`${GRAPH}/${pageId}/${endpoint}`, {
+    const res = await platformFetch(`${GRAPH}/${pageId}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString()
     }, { platform: this.platform })
     const payload = asRecord(res.json)
-    const postId = stringOrNull(payload.post_id) ?? stringOrNull(payload.id)
+    const postId = stringOrNull(payload.id) ?? stringOrNull(payload.post_id)
     if (!postId) {
-      throw new PlatformPublishError('Facebook publish missing post id', { platform: this.platform, status: res.status, retryable: true, body: payload })
+      throw new PlatformPublishError('Facebook feed publish missing post id', { platform: this.platform, status: res.status, retryable: true, body: payload })
     }
     return {
       platformPostId: postId,

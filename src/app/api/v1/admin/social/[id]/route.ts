@@ -13,7 +13,8 @@ const ParamsSchema = z.object({
 
 const PatchBodySchema = z.object({
   caption_text: z.string().max(8000).optional(),
-  hashtags: z.array(z.string().max(120)).max(40).optional()
+  hashtags: z.array(z.string().max(120)).max(40).optional(),
+  platform: z.enum(['INSTAGRAM', 'TIKTOK', 'PINTEREST', 'FACEBOOK', 'YOUTUBE']).optional()
 })
 
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -45,6 +46,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (body.hashtags !== undefined) {
       const cleaned = body.hashtags.map((h) => h.trim()).filter((h) => h.length > 0)
       await SocialAdminService.updateHashtags(params.id, cleaned, userId)
+    }
+    if (body.platform !== undefined) {
+      await SocialAdminService.changePlatform(params.id, body.platform, userId)
     }
 
     const row = await SocialAdminService.getById(params.id)

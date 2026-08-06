@@ -110,7 +110,7 @@ export function AdminSocialClient() {
 
   const queueQuery = useAdminSocialQueue(listParams)
   const statsQuery = useAdminSocialStats(platform)
-  const { approve, publish, schedule, createPost, aiBatch } = useSocialMutations()
+  const { approve, publish, schedule, createPost, aiBatch, PublishTrackers } = useSocialMutations()
 
   const items = queueQuery.data?.success ? queueQuery.data.data.items : []
   const total = queueQuery.data?.success ? queueQuery.data.data.total : 0
@@ -153,6 +153,7 @@ export function AdminSocialClient() {
 
   return (
     <div className="space-y-6 pb-24">
+      <PublishTrackers />
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

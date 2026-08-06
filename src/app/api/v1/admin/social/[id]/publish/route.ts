@@ -33,8 +33,11 @@ export async function POST(
 
     const post = postRows[0]
     if (!post) throw new NotFoundError('Social post not found')
-    if (!['APPROVED', 'SCHEDULED'].includes(post.status)) {
-      throw new ValidationError(`Post cannot be published from state ${post.status}; approve it first`)
+    // Publish now publishes immediately, so a DRAFT/FAILED post is implicitly
+    // approved by the publisher before the job is claimed. PUBLISHED/PUBLISHING
+    // are still rejected to prevent double-publishing.
+    if (!['APPROVED', 'SCHEDULED', 'VIDEO_PENDING', 'DRAFT', 'FAILED'].includes(post.status)) {
+      throw new ValidationError(`Post cannot be published from state ${post.status}`)
     }
     if (post.reviewState === 'REJECTED') {
       throw new ValidationError('Rejected posts cannot be published; review the content first')

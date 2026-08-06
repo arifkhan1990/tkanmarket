@@ -6,8 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
-  ArrowUpRight,
   CalendarClock,
+  CheckCircle2,
   Clapperboard,
   Code2,
   Eye,
@@ -27,13 +27,14 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { PostToSocialDialog } from '@/components/admin/social/post-to-social-dialog'
 import { SocialPreviewFrames, type PreviewMode } from '@/components/admin/social/social-preview-frames'
 import { SocialRevisionsTimeline } from '@/components/admin/social/social-revisions-timeline'
+import { SocialActivityTimeline } from '@/components/admin/social/social-activity-timeline'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useAdminSocialPost, useAdminSocialPostMutations } from '@/hooks/admin/useAdminSocialPost'
 import { useI18n } from '@/hooks/useI18n'
@@ -107,11 +108,11 @@ type BodyProps = {
   schedule: ReturnType<typeof useAdminSocialPostMutations>['schedule']
   reject: ReturnType<typeof useAdminSocialPostMutations>['reject']
   publish: ReturnType<typeof useAdminSocialPostMutations>['publish']
+  changePlatform: ReturnType<typeof useAdminSocialPostMutations>['changePlatform']
   regenerateCarousel: ReturnType<typeof useAdminSocialPostMutations>['regenerateCarousel']
   regenerateImage: ReturnType<typeof useAdminSocialPostMutations>['regenerateImage']
   regenerateReel: ReturnType<typeof useAdminSocialPostMutations>['regenerateReel']
   router: ReturnType<typeof useRouter>
-  onPostToOtherPlatforms: () => void
 }
 
 function SectionCard({ title, icon: Icon, action, children }: {
@@ -157,12 +158,26 @@ function isVideoLike(contentType: string): boolean {
   return v.includes('REEL') || v.includes('VIDEO')
 }
 
-function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, publish, regenerateCarousel, regenerateImage, regenerateReel, router, onPostToOtherPlatforms }: BodyProps) {
+function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, publish, changePlatform, regenerateCarousel, regenerateImage, regenerateReel, router }: BodyProps) {
   const [mode, setMode] = useState<PreviewMode>(() => platformToMode(detail.platform))
   const [caption, setCaption] = useState(() => detail.captionText ?? '')
   const [tags, setTags] = useState(() => detail.hashtags ?? [])
   const [tagInput, setTagInput] = useState('')
   const [scheduleLocal, setScheduleLocal] = useState(() => toDatetimeLocalValue(detail.scheduledAt))
+
+  // Sync local editor state when server data changes (e.g. after mutation invalidation)
+  // but do NOT touch `mode` — the user's platform preview choice should be preserved.
+  const prevDetailRef = React.useRef(detail)
+  React.useEffect(() => {
+    const prev = prevDetailRef.current
+    if (prev === detail) return
+    prevDetailRef.current = detail
+    // Only sync if the server value actually changed (avoid overwriting user edits
+    // when React Query background-refetches return the same stale data).
+    if (detail.captionText !== prev.captionText) setCaption(detail.captionText ?? '')
+    if (JSON.stringify(detail.hashtags) !== JSON.stringify(prev.hashtags)) setTags(detail.hashtags ?? [])
+    if (detail.scheduledAt !== prev.scheduledAt) setScheduleLocal(toDatetimeLocalValue(detail.scheduledAt))
+  }, [detail])
 
   const hasVideo = isVideoLike(detail.contentType) && Boolean(detail.generatedVideoUrl)
   const [mediaTab, setMediaTab] = useState<'video' | 'image'>(() => (hasVideo ? 'video' : 'image'))
@@ -236,6 +251,13 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
     VIDEO_PENDING: p.videoPendingBadge
   }
   const contentType = detail.contentType?.replace('_', ' ').toLowerCase() || '—'
+  const platformOptions = [
+    { value: 'INSTAGRAM', label: p.previewInstagram },
+    { value: 'TIKTOK', label: p.previewTikTok },
+    { value: 'PINTEREST', label: p.previewPinterest },
+    { value: 'FACEBOOK', label: p.previewFacebook },
+    { value: 'YOUTUBE', label: p.previewYouTube }
+  ] as const
   const hasAiBreakdown =
     Boolean(postTitle) ||
     Boolean(specificationsSummary) ||
@@ -597,11 +619,29 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{p.platformTitle}</p>
-                <div className="mt-2 flex items-center justify-between rounded-xl border border-outline/10 bg-surface-container-low px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <ArrowUpRight className="h-4 w-4 text-primary" aria-hidden />
-                    <span className="text-sm font-semibold text-on-surface">{detail.platform}</span>
-                  </div>
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-outline/10 bg-surface-container-low px-4 py-3">
+                  <Select
+                    value={detail.platform.toUpperCase()}
+                    disabled={detail.status === 'PUBLISHED'}
+                    onValueChange={(value) => {
+                      if (value === detail.platform.toUpperCase()) return
+                      changePlatform.mutate(value as 'INSTAGRAM' | 'TIKTOK' | 'PINTEREST' | 'FACEBOOK' | 'YOUTUBE')
+                    }}
+                  >
+                    <SelectTrigger
+                      className="h-auto w-full flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                      aria-label={p.platformTitle}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {platformOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Badge intent="brand">{contentType}</Badge>
                 </div>
                 <p className="mt-2 flex items-center gap-1.5 text-xs text-on-surface-variant">
@@ -611,18 +651,36 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
               </div>
             </div>
 
+            {/* Lifecycle readout — always shows whether the post was approved/scheduled/published */}
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {detail.approvedAt ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                  {p.approvedAtLabel}: {new Date(detail.approvedAt).toLocaleString()}
+                </span>
+              ) : null}
+              {detail.scheduledAt ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                  <CalendarClock className="h-3.5 w-3.5" aria-hidden />
+                  {p.scheduledAtLabel}: {new Date(detail.scheduledAt).toLocaleString()}
+                </span>
+              ) : null}
+              {detail.publishedAt ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700">
+                  <Send className="h-3.5 w-3.5" aria-hidden />
+                  {p.publishedAtLabel}: {new Date(detail.publishedAt).toLocaleString()}
+                </span>
+              ) : null}
+              {detail.publishAttempts ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                  {p.publishAttemptsLabel}: {detail.publishAttempts}
+                </span>
+              ) : null}
+            </div>
+
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button type="button" variant="outline" className="h-12 flex-1 rounded-2xl" onClick={onSave} disabled={patchPost.isPending}>
                 {p.saveDraft}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-12 flex-1 rounded-2xl gap-2 border-primary/30 text-primary hover:bg-primary/5"
-                onClick={onPostToOtherPlatforms}
-              >
-                <Send className="h-4 w-4" aria-hidden />
-                Post to other platforms
               </Button>
               <Button type="button" className="h-12 flex-[2] rounded-2xl shadow-lg" onClick={onSchedule} disabled={schedule.isPending}>
                 {p.approveSchedule}
@@ -649,15 +707,6 @@ function SocialPreviewBody({ detail, postId, p, patchPost, schedule, reject, pub
           <Button type="button" variant="outline" className="rounded-xl" onClick={onReject} disabled={reject.isPending}>
             {p.rejectPost}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="rounded-xl gap-2 border-primary/30 text-primary hover:bg-primary/5"
-            onClick={onPostToOtherPlatforms}
-          >
-            <Send className="h-4 w-4" aria-hidden />
-            Post to others
-          </Button>
           <Button type="button" className="rounded-xl" onClick={() => publish.mutate()} disabled={publish.isPending}>
             {p.publishNow}
           </Button>
@@ -676,10 +725,6 @@ export function AdminSocialPreviewClient({ postId }: { postId: number }) {
   const mutations = useAdminSocialPostMutations(postId)
 
   const detail = query.data?.success ? query.data.data : undefined
-
-  // Post to other platforms dialog state
-  const [postToSocialOpen, setPostToSocialOpen] = React.useState(false)
-
   if (query.isError) {
     return (
       <div className="rounded-2xl border border-outline/15 bg-surface-container-low p-8 text-center">
@@ -710,8 +755,9 @@ export function AdminSocialPreviewClient({ postId }: { postId: number }) {
 
   return (
     <div className="pb-40">
+      <mutations.PublishTrackers />
       <SocialPreviewBody
-        key={`${postId}-${query.dataUpdatedAt}`}
+        key={postId}
         detail={detail}
         postId={postId}
         p={p}
@@ -719,24 +765,16 @@ export function AdminSocialPreviewClient({ postId }: { postId: number }) {
         schedule={mutations.schedule}
         reject={mutations.reject}
         publish={mutations.publish}
+        changePlatform={mutations.changePlatform}
         regenerateCarousel={mutations.regenerateCarousel}
         regenerateImage={mutations.regenerateImage}
         regenerateReel={mutations.regenerateReel}
         router={router}
-        onPostToOtherPlatforms={() => setPostToSocialOpen(true)}
       />
       <div className="mx-auto mt-8 max-w-5xl px-4">
+        <SocialActivityTimeline postId={postId} />
         <SocialRevisionsTimeline postId={postId} />
       </div>
-
-      {detail ? (
-        <PostToSocialDialog
-          open={postToSocialOpen}
-          onOpenChange={setPostToSocialOpen}
-          fabricId={detail.fabricId}
-          fabricTitle={detail.fabricTitle ?? `Fabric #${detail.fabricId}`}
-        />
-      ) : null}
     </div>
   )
 }

@@ -23,6 +23,10 @@ export interface AdminSocialQueueItem {
   captionText: string | null
   scheduledAt: string | null
   publishedAt: string | null
+  createdAt: string
+  approvedAt?: string | null
+  publishAttempts?: number | null
+  lastPublishErrorAt?: string | null
   reach: number | null
   likes: number | null
   shares: number | null

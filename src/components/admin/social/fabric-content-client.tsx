@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Send } from 'lucide-react'
 
-import { PostToSocialDialog } from '@/components/admin/social/post-to-social-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -69,7 +67,6 @@ export default function FabricContentClient({ fabricId }: { fabricId: number }) 
   const [posts, setPosts] = useState<FabricPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [postToSocialOpen, setPostToSocialOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -126,15 +123,6 @@ export default function FabricContentClient({ fabricId }: { fabricId: number }) 
           {!fabric?.fabricSku && <p className="mt-1 text-sm text-slate-500">No social posts yet — open the post management page to generate content.</p>}
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            className="gap-2"
-            onClick={() => setPostToSocialOpen(true)}
-          >
-            <Send className="h-3.5 w-3.5" aria-hidden />
-            Post to Social
-          </Button>
           <Button variant="outline" size="sm" onClick={() => router.push(`/admin/social?fabric_id=${fabricId}`)}>
             Open post manager
           </Button>
@@ -149,10 +137,6 @@ export default function FabricContentClient({ fabricId }: { fabricId: number }) 
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <p className="text-sm text-slate-500">No social posts for this fabric yet.</p>
             <div className="flex gap-2">
-              <Button size="sm" className="gap-2" onClick={() => setPostToSocialOpen(true)}>
-                <Send className="h-3.5 w-3.5" aria-hidden />
-                Post to Social
-              </Button>
               <Link href={`/admin/social?fabric_id=${fabricId}`}>
                 <Button size="sm" variant="outline">Create in post manager</Button>
               </Link>
@@ -220,16 +204,6 @@ export default function FabricContentClient({ fabricId }: { fabricId: number }) 
         </Card>
       )}
 
-      <PostToSocialDialog
-        open={postToSocialOpen}
-        onOpenChange={setPostToSocialOpen}
-        fabricId={fabricId}
-        fabricTitle={fabric?.fabricTitle ?? `Fabric #${fabricId}`}
-        onSuccess={() => {
-          // Reload posts after creating new drafts
-          router.refresh()
-        }}
-      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { fabrics } from '@/db/schema/fabrics.schema'
 import { socialActivityLog, socialPosts, socialPostRevisions } from '@/db/schema/social.schema'
 import { generatedMedia } from '@/db/schema/generated-media.schema'
 import { suppliers } from '@/db/schema/suppliers.schema'
+import { users } from '@/db/schema/users.schema'
 import { resolveR2Url } from '@/lib/storage/r2'
 import { AIService } from '@/services/ai.service'
 import { NotFoundError, ValidationError } from '@/lib/errors'
@@ -120,6 +121,10 @@ function mapRowToItem(r: {
   captionText: string | null
   scheduledAt: Date | null
   publishedAt: Date | null
+  createdAt: Date
+  approvedAt: Date | null
+  publishAttempts: number
+  lastPublishErrorAt: Date | null
   reach: number | null
   likes: number | null
   shares: number | null
@@ -151,6 +156,10 @@ function mapRowToItem(r: {
     captionText: r.captionText,
     scheduledAt: r.scheduledAt ? (r.scheduledAt instanceof Date ? r.scheduledAt.toISOString() : String(r.scheduledAt)) : null,
     publishedAt: r.publishedAt ? (r.publishedAt instanceof Date ? r.publishedAt.toISOString() : String(r.publishedAt)) : null,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    approvedAt: r.approvedAt ? (r.approvedAt instanceof Date ? r.approvedAt.toISOString() : String(r.approvedAt)) : null,
+    publishAttempts: r.publishAttempts,
+    lastPublishErrorAt: r.lastPublishErrorAt ? (r.lastPublishErrorAt instanceof Date ? r.lastPublishErrorAt.toISOString() : String(r.lastPublishErrorAt)) : null,
     reach: r.reach,
     likes: r.likes,
     shares: r.shares,
@@ -187,6 +196,10 @@ export class SocialAdminService {
         captionText: socialPosts.captionText,
         scheduledAt: socialPosts.scheduledAt,
         publishedAt: socialPosts.publishedAt,
+        createdAt: socialPosts.createdAt,
+        approvedAt: socialPosts.approvedAt,
+        publishAttempts: socialPosts.publishAttempts,
+        lastPublishErrorAt: socialPosts.lastPublishErrorAt,
         reach: socialPosts.reach,
         likes: socialPosts.likes,
         shares: socialPosts.shares,
@@ -441,7 +454,7 @@ export class SocialAdminService {
         timezone,
         updatedAt: new Date()
       })
-      .where(and(eq(socialPosts.id, id), inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'FAILED']), isNull(socialPosts.deletedAt)))
+      .where(and(eq(socialPosts.id, id), inArray(socialPosts.status, ['DRAFT', 'APPROVED', 'FAILED', 'VIDEO_PENDING', 'SCHEDULED']), isNull(socialPosts.deletedAt)))
       .returning({ id: socialPosts.id })
     if (updated.length > 0) {
       await db.insert(socialActivityLog).values({
@@ -630,6 +643,69 @@ export class SocialAdminService {
     return { created: rows.length, ids: rows.map((r) => r.id) }
   }
 
+  public static async changePlatform(postId: number, platform: Platform, actorUserId: number | null = null) {
+    const db = getDb()
+
+    const [post] = await db
+      .select({
+        id: socialPosts.id,
+        fabricId: socialPosts.fabricId,
+        platform: socialPosts.platform,
+        contentType: socialPosts.contentType,
+        status: socialPosts.status,
+        revisionNumber: socialPosts.revisionNumber,
+        captionText: socialPosts.captionText,
+        hashtags: socialPosts.hashtags,
+        scriptText: socialPosts.scriptText,
+        mediaUrls: socialPosts.mediaUrls,
+        platformMetadata: socialPosts.platformMetadata,
+        publishedAt: socialPosts.publishedAt
+      })
+      .from(socialPosts)
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+      .limit(1)
+
+    if (!post) throw new NotFoundError('Social post not found')
+    if (post.publishedAt) throw new ValidationError('Cannot change platform of a published post')
+
+    const previousPlatform = post.platform as Platform
+    if (previousPlatform === platform) {
+      return
+    }
+
+    const before = buildPostSnapshot(post)
+    const nextRevisionNumber = post.revisionNumber + 1
+
+    // Only the target platform changes — caption, hashtags, script, media and
+    // metadata stay exactly as they are. No content is wiped or regenerated.
+    await db
+      .update(socialPosts)
+      .set({
+        platform,
+        revisionNumber: nextRevisionNumber,
+        updatedAt: new Date()
+      })
+      .where(and(eq(socialPosts.id, postId), isNull(socialPosts.deletedAt)))
+
+    const after = buildPostSnapshot(post)
+    await SocialAdminService.writeRevision({
+      postId,
+      revisionNumber: nextRevisionNumber,
+      changeType: 'REGENERATED',
+      snapshot: { platform, contentType: post.contentType },
+      before,
+      after,
+      actorUserId
+    })
+
+    await db.insert(socialActivityLog).values({
+      postId,
+      action: 'UPDATED',
+      actorUserId,
+      details: { previousPlatform, platform, contentType: post.contentType, reason: 'PLATFORM_CHANGED' }
+    })
+  }
+
   // ── Video generation admin methods ──
 
   public static async getVideoDetail(postId: number) {
@@ -805,6 +881,24 @@ export class SocialAdminService {
       actorUserId,
       details: { reason: rejectionReason }
     })
+  }
+
+  public static async listActivity(postId: number, limit = 100) {
+    return getDb()
+      .select({
+        id: socialActivityLog.id,
+        postId: socialActivityLog.postId,
+        action: socialActivityLog.action,
+        actorUserId: socialActivityLog.actorUserId,
+        actorName: users.name,
+        details: socialActivityLog.details,
+        createdAt: socialActivityLog.createdAt
+      })
+      .from(socialActivityLog)
+      .leftJoin(users, eq(socialActivityLog.actorUserId, users.id))
+      .where(eq(socialActivityLog.postId, postId))
+      .orderBy(desc(socialActivityLog.createdAt))
+      .limit(limit)
   }
 
   public static async listRevisions(postId: number) {

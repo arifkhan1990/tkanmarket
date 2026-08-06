@@ -7,6 +7,7 @@ import type { ApiEnvelope } from '@/types/api-envelope.types'
 import type { AdminSocialPostDetail } from '@/types/admin-social.types'
 
 import { useI18n } from '@/hooks/useI18n'
+import { useSocialPublishTracker } from '@/hooks/admin/useSocialPublishTracker'
 
 export function useAdminSocialPost(id: number | null) {
   const { messages } = useI18n()
@@ -30,6 +31,7 @@ export function useAdminSocialPostMutations(postId: number) {
   const queryClient = useQueryClient()
   const { messages } = useI18n()
   const t = messages.admin.socialPreviewPage
+  const { track, PublishTrackers } = useSocialPublishTracker()
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-social-post', postId] })
@@ -79,6 +81,27 @@ export function useAdminSocialPostMutations(postId: number) {
     onError: (e: Error) => toast.error(e.message)
   })
 
+  const changePlatform = useMutation({
+    mutationFn: async (platform: 'INSTAGRAM' | 'TIKTOK' | 'PINTEREST' | 'FACEBOOK' | 'YOUTUBE') => {
+      const res = await fetch(`/api/v1/admin/social/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform })
+      })
+      const json = (await res.json()) as ApiEnvelope<AdminSocialPostDetail>
+      if (!res.ok || !json.success) {
+        const message = !json.success ? json.error.message : messages.admin.leadsTimeline.requestFailed
+        throw new Error(message)
+      }
+      return json.data
+    },
+    onSuccess: () => {
+      invalidate()
+      toast.success(t.platformChangedToast)
+    },
+    onError: (e: Error) => toast.error(e.message)
+  })
+
   const reject = useMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/v1/admin/social/${postId}/reject`, { method: 'POST' })
@@ -109,7 +132,8 @@ export function useAdminSocialPostMutations(postId: number) {
     },
     onSuccess: () => {
       invalidate()
-      toast.success(t.publishedToast)
+      toast.success(t.publishQueuedToast)
+      track(postId)
     },
     onError: (e: Error) => toast.error(e.message)
   })
@@ -177,5 +201,5 @@ export function useAdminSocialPostMutations(postId: number) {
     onError: (e: Error) => toast.error(e.message)
   })
 
-  return { patchPost, schedule, reject, publish, regenerateCarousel, regenerateImage, regenerateReel }
+  return { patchPost, schedule, reject, publish, changePlatform, regenerateCarousel, regenerateImage, regenerateReel, PublishTrackers }
 }
