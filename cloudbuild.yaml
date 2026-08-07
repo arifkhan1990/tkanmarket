@@ -33,7 +33,7 @@ substitutions:
   _NETWORK: default
   _SUBNET: default
   _VPC_EGRESS: private-ranges-only
-  _CLOUD_SQL_INSTANCE: tkanmarket:us-central1:tkanmarket-sql
+  _CLOUD_SQL_INSTANCE: tkanmarket:us-central1:tkanmarket
   _WEB_CPU: "2"
   _WEB_MEMORY: 2Gi
   _WEB_MIN: "1"
