@@ -1,3 +1,4 @@
+import { createServer } from 'node:http'
 import { installGracefulShutdown } from '@/workers/worker-utils'
 import { isWorkerEnabled } from '@/lib/features'
 import { logger } from '@/lib/logger'
@@ -16,6 +17,14 @@ import { crawlerWorker } from '@/workers/crawler.worker'
 import translationWorker from '@/workers/translation.worker'
 import { mediaCleanupWorker } from '@/workers/media-cleanup.worker'
 import { scheduleMediaCleanup, scheduleSocialRepeatables } from '@/lib/queue/helpers'
+
+const healthPort = Number.parseInt(process.env.PORT ?? '8080', 10)
+createServer((_req, res) => {
+  res.writeHead(200, { 'content-type': 'text/plain' })
+  res.end('ok')
+}).listen(healthPort, () => {
+  logger.info('Worker health server listening', { port: healthPort })
+})
 
 const allWorkers = [
   { name: 'ai', instance: aiWorker },
