@@ -33,7 +33,7 @@ substitutions:
   _NETWORK: default
   _SUBNET: default
   _VPC_EGRESS: private-ranges-only
-  _CLOUD_SQL_INSTANCE: ""       # e.g. my-project:us-central1:tkanmarket-sql (Cloud SQL proxy)
+  _CLOUD_SQL_INSTANCE: tkanmarket:us-central1:tkanmarket-sql
   _WEB_CPU: "2"
   _WEB_MEMORY: 2Gi
   _WEB_MIN: "1"
@@ -43,7 +43,7 @@ substitutions:
   _WORKER_CONCURRENCY: "1"
 
   # ---- Build-time (public) env vars inlined by Next.js ----
-  _NEXT_PUBLIC_SITE_URL: https://YOUR-DOMAIN.example
+  _NEXT_PUBLIC_SITE_URL: https://tkanmarket-web-478830282072.us-central1.run.app
   _NEXT_PUBLIC_DOCS_URL: ""
   _NEXT_PUBLIC_INSTAGRAM_URL: ""
   _NEXT_PUBLIC_TIKTOK_URL: ""
