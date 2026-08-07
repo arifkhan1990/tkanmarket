@@ -22,13 +22,17 @@ substitutions:
   # ---- Artifact Registry ----
   _REGION: us-central1
   _REPO: tkanmarket
-  _IMAGE: ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/tkanmarket
+  _IMAGE: ${_REGION}-docker.pkg.dev/tkanmarket/${_REPO}/tkanmarket
 
   # ---- Cloud Run services ----
   _WEB_SERVICE: tkanmarket-web
   _WORKER_SERVICE: tkanmarket-worker
   _SERVICE_ACCOUNT: ""          # empty -> default compute service account
-  _VPC_CONNECTOR: ""            # set to your connector name for private Cloud SQL/Redis
+  # Direct VPC egress (no Serverless VPC connector needed) so Cloud Run can
+  # reach Memorystore Redis on its private IP. Subnet must be >= /26.
+  _NETWORK: default
+  _SUBNET: default
+  _VPC_EGRESS: private-ranges-only
   _CLOUD_SQL_INSTANCE: ""       # e.g. my-project:us-central1:tkanmarket-sql (Cloud SQL proxy)
   _WEB_CPU: "2"
   _WEB_MEMORY: 2Gi
@@ -90,8 +94,6 @@ steps:
         set -euo pipefail
         SA=()
         [ -n "$_SERVICE_ACCOUNT" ] && SA=(--service-account="$_SERVICE_ACCOUNT")
-        CONN=()
-        [ -n "$_VPC_CONNECTOR" ] && CONN=(--vpc-connector="$_VPC_CONNECTOR")
         CSQL=()
         [ -n "$_CLOUD_SQL_INSTANCE" ] && CSQL=(--add-cloudsql-instances="$_CLOUD_SQL_INSTANCE")
         gcloud run deploy "$_WEB_SERVICE" \
@@ -99,10 +101,13 @@ steps:
           --region="$_REGION" \
           --platform=managed \
           --allow-unauthenticated \
+          --network="$_NETWORK" \
+          --subnet="$_SUBNET" \
+          --vpc-egress="$_VPC_EGRESS" \
           --cpu="$_WEB_CPU" \
           --memory="$_WEB_MEMORY" \
           --min-instances="$_WEB_MIN" \
-          "${SA[@]}" "${CONN[@]}" "${CSQL[@]}" \
+          "${SA[@]}" "${CSQL[@]}" \
           --command=node \
           --args=server.js \
           --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest" \
@@ -120,8 +125,6 @@ steps:
         set -euo pipefail
         SA=()
         [ -n "$_SERVICE_ACCOUNT" ] && SA=(--service-account="$_SERVICE_ACCOUNT")
-        CONN=()
-        [ -n "$_VPC_CONNECTOR" ] && CONN=(--vpc-connector="$_VPC_CONNECTOR")
         CSQL=()
         [ -n "$_CLOUD_SQL_INSTANCE" ] && CSQL=(--add-cloudsql-instances="$_CLOUD_SQL_INSTANCE")
         gcloud run deploy "$_WORKER_SERVICE" \
@@ -129,13 +132,16 @@ steps:
           --region="$_REGION" \
           --platform=managed \
           --no-allow-unauthenticated \
+          --network="$_NETWORK" \
+          --subnet="$_SUBNET" \
+          --vpc-egress="$_VPC_EGRESS" \
           --cpu="$_WORKER_CPU" \
           --memory="$_WORKER_MEMORY" \
           --min-instances="$_WORKER_MIN" \
           --max-instances="$_WORKER_MIN" \
           --concurrency="$_WORKER_CONCURRENCY" \
           --timeout=3600 \
-          "${SA[@]}" "${CONN[@]}" "${CSQL[@]}" \
+          "${SA[@]}" "${CSQL[@]}" \
           --command=node \
           --args=dist-workers/src/workers/index.js \
           --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest" \
