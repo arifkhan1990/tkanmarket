@@ -53,8 +53,10 @@ build artifacts, or test files are tracked or shipped into the image.
      --repository-format=docker --location=us-central1
    ```
 3. **Postgres (Cloud SQL)** — create a `postgres-16` instance + database.
-4. **Redis (Memorystore)** — create a Redis instance (Basic tier public IP is
-   easiest; add `_VPC_CONNECTOR` in the trigger if you use private IP).
+4. **Redis (Memorystore)** — create a Redis instance (Basic tier) on the
+   `default` network. Cloud Run reaches it via **Direct VPC egress**
+   (`_NETWORK`/`_SUBNET` are already `default` in `cloudbuild.yaml`) — no
+   Serverless VPC connector required.
 5. **Secrets** — push your local `.env` into Secret Manager (skips `NEXT_PUBLIC_*`):
    ```bash
    bash scripts/gcloud-secrets.sh .env YOUR_PROJECT_ID
@@ -66,7 +68,7 @@ build artifacts, or test files are tracked or shipped into the image.
    (inline or repo root). Set the **substitution variables**:
    - `_NEXT_PUBLIC_SITE_URL` = your public URL (e.g. `https://tkanmarket.app`)
    - `_REGION` = `us-central1` (or wherever you made the repo)
-   - `_VPC_CONNECTOR` = only if using private Cloud SQL/Redis
+   - `_CLOUD_SQL_INSTANCE` = `PROJECT_ID:us-central1:INSTANCE_NAME` (Cloud SQL proxy)
 
 7. (Recommended) **Initial schema + seed** — once after the DB is up:
    ```bash

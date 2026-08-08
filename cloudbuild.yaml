@@ -43,7 +43,7 @@ substitutions:
   _WORKER_CONCURRENCY: "1"
 
   # ---- Build-time (public) env vars inlined by Next.js ----
-  _NEXT_PUBLIC_SITE_URL: https://tkanmarket-web-478830282072.us-central1.run.app
+  _NEXT_PUBLIC_SITE_URL: https://tkanmarket.xyz
   _NEXT_PUBLIC_DOCS_URL: ""
   _NEXT_PUBLIC_INSTAGRAM_URL: ""
   _NEXT_PUBLIC_TIKTOK_URL: ""
