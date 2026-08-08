@@ -16,7 +16,7 @@ import { getServerLocale } from '@/lib/i18n/get-locale'
 import { getMessages } from '@/lib/i18n/get-messages'
 import { generateHomeWebSiteJsonLd, getHomePageAlternates, getPublicSiteUrl } from '@/lib/utils/seo'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()

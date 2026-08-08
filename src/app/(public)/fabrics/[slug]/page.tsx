@@ -17,16 +17,7 @@ import { withLocaleUrl } from '@/lib/i18n/locale-path'
 import { getLocalizedFabricTitle } from '@/lib/i18n/localized-fabric'
 import { getMessages } from '@/lib/i18n/get-messages'
 
-export const revalidate = 3600
-
-export async function generateStaticParams() {
-  try {
-    const rows = await FabricService.getTopViewedSlugs(500)
-    return rows.map((r) => ({ slug: r.slug }))
-  } catch {
-    return []
-  }
-}
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   params

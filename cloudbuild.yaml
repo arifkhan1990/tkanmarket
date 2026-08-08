@@ -110,7 +110,7 @@ steps:
           "${SA[@]}" "${CSQL[@]}" \
           --command=node \
           --args=server.js \
-          --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest" \
+          --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest,ADMIN_EMAIL=admin_email:latest,ADMIN_PASSWORD=admin_password:latest" \
           --set-env-vars="NEXTAUTH_URL=${_NEXT_PUBLIC_SITE_URL},AUTH_TRUST_HOST=true,LOG_LEVEL=info"
         gcloud run services update-traffic "$_WEB_SERVICE" \
           --region="$_REGION" --to-latest
@@ -144,7 +144,7 @@ steps:
           "${SA[@]}" "${CSQL[@]}" \
           --command=node \
           --args=dist-workers/src/workers/index.js \
-          --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest" \
+          --set-secrets="DATABASE_URL=database_url:latest,REDIS_URL=redis_url:latest,GOOGLE_API_KEY=google_api_key:latest,NEXTAUTH_SECRET=nextauth_secret:latest,SOCIAL_TOKEN_ENCRYPTION_KEY=social_token_encryption_key:latest,CLOUDFLARE_R2_ACCOUNT_ID=cloudflare_r2_account_id:latest,CLOUDFLARE_R2_ACCESS_KEY_ID=cloudflare_r2_access_key_id:latest,CLOUDFLARE_R2_SECRET_ACCESS_KEY=cloudflare_r2_secret_access_key:latest,CLOUDFLARE_R2_BUCKET=cloudflare_r2_bucket:latest,CLOUDFLARE_R2_PUBLIC_BASE_URL=cloudflare_r2_public_base_url:latest,ADMIN_EMAIL=admin_email:latest,ADMIN_PASSWORD=admin_password:latest" \
           --set-env-vars="NEXTAUTH_URL=${_NEXT_PUBLIC_SITE_URL},AUTH_TRUST_HOST=true,LOG_LEVEL=info"
 
 images:
