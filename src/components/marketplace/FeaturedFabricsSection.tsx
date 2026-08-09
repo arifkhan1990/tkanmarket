@@ -14,6 +14,8 @@ export async function FeaturedFabricsSection() {
   const locale = await getServerLocale()
   const m = getMessages(locale)
 
+  if (fabrics.length === 0) return null
+
   return (
     <section className="mx-auto w-full max-w-screen-2xl px-6 py-16 md:py-24 md:px-8">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -32,11 +34,7 @@ export async function FeaturedFabricsSection() {
         </Link>
       </div>
 
-      {fabrics.length === 0 ? (
-        <p className="mt-10 text-center text-on-surface-variant text-sm">{m.featured.empty}</p>
-      ) : (
-        <FeaturedFabricsGridClient items={fabrics} />
-      )}
+      <FeaturedFabricsGridClient items={fabrics} />
     </section>
   )
 }

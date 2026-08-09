@@ -304,7 +304,9 @@ export function SupplierDetailClient({ slug }: { slug: string }) {
   const navItems: Array<{ key: SectionKey; label: string }> = [
     { key: 'overview', label: m.pageNavOverview },
     ...(trendingFabrics.length > 0 ? [{ key: 'trending' as SectionKey, label: m.pageNavTrending }] : []),
-    { key: 'catalog', label: m.pageNavCatalog },
+    ...(supplier.insights.approvedFabricCount > 0
+      ? [{ key: 'catalog' as SectionKey, label: m.pageNavCatalog }]
+      : []),
     { key: 'contact', label: m.pageNavContact }
   ]
 

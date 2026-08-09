@@ -28,6 +28,7 @@ function bgForSlug(slug: string): string {
 }
 
 export async function CategoryGrid(props: { tiles: CategoryTile[] }) {
+  if (props.tiles.length === 0) return null
   const locale = await getServerLocale()
   const m = getMessages(locale)
   const items = m.categories.items

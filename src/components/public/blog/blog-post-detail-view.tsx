@@ -343,8 +343,6 @@ export function BlogPostDetailView({
         lead={blog.relatedIntelligenceLead}
         viewAllLabel={blog.viewAllInsights}
         readMinutesTemplate={blog.readMinutes}
-        emptyTitle={blog.relatedNoneTitle}
-        emptyDescription={blog.relatedNoneDescription}
         formatDate={formatDate}
       />
     </div>

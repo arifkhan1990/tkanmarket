@@ -23,6 +23,8 @@ export async function TopSuppliersSection() {
 
   const suppliers = result.items
 
+  if (suppliers.length === 0) return null
+
   return (
     <section className="bg-surface-container-low">
       <div className="mx-auto w-full max-w-screen-2xl px-6 py-16 md:px-8">
@@ -42,81 +44,75 @@ export async function TopSuppliersSection() {
           </Button>
         </div>
 
-        {suppliers.length === 0 ? (
-          <p className="mt-10 rounded-3xl border border-dashed border-outline/20 bg-surface-container-lowest px-6 py-10 text-center text-sm text-on-surface-variant">
-            {m.topSuppliers.empty}
-          </p>
-        ) : (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {suppliers.map((s, idx) => {
-              const fabricCount = s.catalogPreview?.approvedFabricCount ?? 0
-              const previewImage = s.catalogPreview?.coverImageUrl ?? null
-              const showRemote = previewImage !== null && isRemoteImageSrc(previewImage)
-              const lcpBoost = idx < 6
-              const location = [s.city, s.country].filter(Boolean).join(', ')
-              return (
-                <Link
-                  key={s.id}
-                  href={withLocaleUrl(`/suppliers/${s.slug}`, locale)}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-outline/10 bg-surface-container-lowest shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-soft"
-                >
-                  <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-brand-50 to-surface-container-low">
-                    {showRemote ? (
-                      <Image
-                        src={previewImage}
-                        alt={s.name}
-                        fill
-                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        unoptimized={showRemote}
-                        priority={lcpBoost}
-                        fetchPriority={lcpBoost ? 'high' : 'auto'}
-                        loading={lcpBoost ? 'eager' : 'lazy'}
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-6xl font-black text-primary/15">
-                        {s.name.charAt(0)}
-                      </div>
-                    )}
-                    {s.verified ? (
-                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm backdrop-blur-sm">
-                        <BadgeCheck className="h-3 w-3" aria-hidden />
-                        {m.topSuppliers.verifiedBadge}
-                      </span>
-                    ) : null}
-                  </div>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {suppliers.map((s, idx) => {
+            const fabricCount = s.catalogPreview?.approvedFabricCount ?? 0
+            const previewImage = s.catalogPreview?.coverImageUrl ?? null
+            const showRemote = previewImage !== null && isRemoteImageSrc(previewImage)
+            const lcpBoost = idx < 6
+            const location = [s.city, s.country].filter(Boolean).join(', ')
+            return (
+              <Link
+                key={s.id}
+                href={withLocaleUrl(`/suppliers/${s.slug}`, locale)}
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-outline/10 bg-surface-container-lowest shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-soft"
+              >
+                <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-brand-50 to-surface-container-low">
+                  {showRemote ? (
+                    <Image
+                      src={previewImage}
+                      alt={s.name}
+                      fill
+                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      unoptimized={showRemote}
+                      priority={lcpBoost}
+                      fetchPriority={lcpBoost ? 'high' : 'auto'}
+                      loading={lcpBoost ? 'eager' : 'lazy'}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-6xl font-black text-primary/15">
+                      {s.name.charAt(0)}
+                    </div>
+                  )}
+                  {s.verified ? (
+                    <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary shadow-sm backdrop-blur-sm">
+                      <BadgeCheck className="h-3 w-3" aria-hidden />
+                      {m.topSuppliers.verifiedBadge}
+                    </span>
+                  ) : null}
+                </div>
 
-                  <div className="flex flex-1 flex-col gap-3 p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="primary-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-black text-on-primary shadow-sm" aria-hidden>
-                        {s.name.charAt(0).toUpperCase()}
+                <div className="flex flex-1 flex-col gap-3 p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="primary-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-base font-black text-on-primary shadow-sm" aria-hidden>
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-extrabold text-on-surface group-hover:text-primary">
+                        {s.name}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-extrabold text-on-surface group-hover:text-primary">
-                          {s.name}
+                      {location ? (
+                        <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-on-surface-variant">
+                          <MapPin className="h-3 w-3" aria-hidden />
+                          {location}
                         </div>
-                        {location ? (
-                          <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-on-surface-variant">
-                            <MapPin className="h-3 w-3" aria-hidden />
-                            {location}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-outline/10 pt-3 text-xs text-on-surface-variant">
-                      <span className="inline-flex items-center gap-1.5 font-semibold">
-                        <Package className="h-3.5 w-3.5 text-primary" aria-hidden />
-                        {fabricCount} {m.topSuppliers.fabricsLabel}
-                      </span>
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                      ) : null}
                     </div>
                   </div>
-                </Link>
-              )
-            })}
-          </div>
-        )}
+
+                  <div className="flex items-center justify-between border-t border-outline/10 pt-3 text-xs text-on-surface-variant">
+                    <span className="inline-flex items-center gap-1.5 font-semibold">
+                      <Package className="h-3.5 w-3.5 text-primary" aria-hidden />
+                      {fabricCount} {m.topSuppliers.fabricsLabel}
+                    </span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </section>
   )

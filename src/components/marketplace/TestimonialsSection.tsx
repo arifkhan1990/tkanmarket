@@ -6,6 +6,8 @@ import { getMessages } from '@/lib/i18n/get-messages'
 export async function TestimonialsSection() {
   const m = getMessages(await getServerLocale())
 
+  if (m.testimonials.items.length === 0) return null
+
   return (
     <section className="relative overflow-hidden bg-surface-container-low">
       <div className="pointer-events-none absolute -left-32 top-20 h-80 w-80 rounded-full bg-brand-500/5 blur-3xl" aria-hidden />

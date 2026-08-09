@@ -43,6 +43,8 @@ export function SupplierProfileCatalogSection({
     fabricType: fabricFilter
   })
 
+  if (totalApproved === 0) return null
+
   const items = q.data?.items ?? []
   const meta = q.data?.meta
   const shown = items.length

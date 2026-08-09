@@ -9,6 +9,8 @@ const certIcons: readonly LucideIcon[] = [ShieldCheck, Leaf, Award, Sparkles, Re
 export async function CertificationsSection() {
   const m = getMessages(await getServerLocale())
 
+  if (m.certifications.items.length === 0) return null
+
   return (
     <section className="relative overflow-hidden bg-background">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-outline/30 to-transparent" aria-hidden />

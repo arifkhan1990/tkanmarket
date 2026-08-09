@@ -107,7 +107,12 @@ export function classifyAiError(err: unknown): AiErrorClassification {
   const raw = err instanceof Error ? err.message : String(err)
   const lower = raw.toLowerCase()
 
-  if (lower.includes('api key') && lower.includes('not configured')) {
+  if (
+    (lower.includes('api key') && lower.includes('not configured')) ||
+    lower.includes('api_key_invalid') ||
+    lower.includes('api key not valid') ||
+    lower.includes('invalid authentication credentials')
+  ) {
     return AI_NOT_CONFIGURED
   }
 

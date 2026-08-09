@@ -9,6 +9,8 @@ export async function HowItWorksSection() {
   const m = getMessages(await getServerLocale())
   const steps = m.howItWorks.steps.map((s, idx) => ({ ...s, icon: stepIcons[idx] ?? Search }))
 
+  if (steps.length === 0) return null
+
   return (
     <section className="mx-auto w-full max-w-screen-2xl px-6 py-14 md:px-8">
       <div>

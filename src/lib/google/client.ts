@@ -18,7 +18,7 @@ let genAiClient: GoogleGenAI | null = null
 function getGenAiClient(): GoogleGenAI {
   if (genAiClient) return genAiClient
 
-  const apiKey = process.env.GOOGLE_API_KEY
+  const apiKey = (process.env.GOOGLE_API_KEY ?? '').trim().replace(/^["']+|["']+$/g, '')
   if (!apiKey) {
     throw new Error(
       'Gemini API key not configured.\n' +

@@ -10,6 +10,8 @@ export async function TrustStatsSection() {
   const m = getMessages(locale)
   const statsLocalized = m.trust.stats
 
+  if (statsLocalized.length === 0) return null
+
   return (
     <section className="bg-brand-500 text-white">
       <div className="mx-auto w-full max-w-screen-2xl px-6 py-14 md:px-8">

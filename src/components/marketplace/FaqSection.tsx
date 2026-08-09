@@ -10,6 +10,8 @@ export async function FaqSection() {
   const locale = await getServerLocale()
   const m = getMessages(locale)
 
+  if (m.faq.items.length === 0) return null
+
   return (
     <section className="bg-background">
       <div className="mx-auto w-full max-w-screen-2xl px-6 py-16 md:px-8">
