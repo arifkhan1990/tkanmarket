@@ -36,6 +36,14 @@ while IFS='=' read -r key val; do
   case "$key" in NEXT_PUBLIC_*) continue ;; esac
   [ -z "$val" ] && continue
 
+  # Strip surrounding single/double quotes from the value so secrets are stored
+  # verbatim (dotenv quotes must not be part of the runtime value).
+  val="${val#\"}"
+  val="${val%\"}"
+  val="${val#\'}"
+  val="${val%\'}"
+  [ -z "$val" ] && continue
+
   # Normalize secret name: UPPER_SNAKE -> lower_snake
   secret="${key,,}"
   # gcloud secrets create requires a name; reuse if already present.
