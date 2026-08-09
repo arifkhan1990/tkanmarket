@@ -122,8 +122,8 @@ export function SystemHealthClusterPanel({ data }: { data: SystemHealthDashboard
             </p>
           </div>
         </div>
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-left text-xs">
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[480px] text-left text-xs">
             <thead className="bg-muted/50 uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Job</th>

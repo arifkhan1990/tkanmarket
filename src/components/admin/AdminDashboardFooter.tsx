@@ -16,12 +16,12 @@ export function AdminDashboardFooter() {
   return (
     <footer
       className={cn(
-        'fixed bottom-0 right-0 z-30 flex h-[var(--admin-footer-height)] items-center border-t border-outline/10 bg-background/90 backdrop-blur-md lg:left-[var(--admin-sidebar-width)] lg:transition-[left] lg:duration-200',
+        'fixed bottom-0 inset-x-0 z-30 flex h-[var(--admin-footer-height)] w-full items-center border-t border-outline/10 bg-background/90 backdrop-blur-md lg:left-[var(--admin-sidebar-width)] lg:transition-[left] lg:duration-200',
         ADMIN_MAIN_CONTENT_HORIZONTAL_PADDING_CLASS
       )}
       role="contentinfo"
     >
-      <p className="w-full truncate text-center text-[11px] text-on-surface-variant sm:text-left">{text}</p>
+      <p className="w-full min-w-0 truncate px-1 text-center text-[11px] text-on-surface-variant sm:text-left">{text}</p>
     </footer>
   )
 }

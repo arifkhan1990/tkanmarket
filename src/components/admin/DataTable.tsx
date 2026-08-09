@@ -140,7 +140,7 @@ export function DataTable<TData>({
         </TableBody>
       </Table>
 
-      <div className="flex items-center justify-between px-8 py-5 bg-surface-container-low/20">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 bg-surface-container-low/20 sm:px-8">
         <div className="text-xs text-on-surface-variant font-medium">
           {dt.showingPage
             .replace('{current}', String(pagination.pageIndex + 1))

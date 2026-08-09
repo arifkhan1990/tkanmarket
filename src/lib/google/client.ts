@@ -341,7 +341,7 @@ export async function generateGeminiImage(
             responseModalities: ['image', 'text']
           }
         }),
-        120_000,
+        300_000,
         'Gemini image generation'
       )
 

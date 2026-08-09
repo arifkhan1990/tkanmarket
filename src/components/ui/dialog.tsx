@@ -33,7 +33,7 @@ export function DialogContent({
       />
       <DialogPrimitive.Content
         className={cn(
-          'fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-3xl bg-surface-container-lowest p-6 shadow-soft outline-none',
+          'fixed left-[50%] top-[50%] z-50 w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] rounded-3xl bg-surface-container-lowest p-6 shadow-soft outline-none sm:w-full',
           className
         )}
         {...props}

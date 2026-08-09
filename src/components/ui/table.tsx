@@ -5,7 +5,11 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
-  return <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
+    </div>
+  )
 }
 
 export function TableHeader({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
@@ -23,7 +27,10 @@ export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTable
 export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn('h-12 px-4 text-left align-middle text-[10px] font-bold uppercase tracking-widest text-outline', className)}
+      className={cn(
+        'h-12 px-4 text-left align-middle text-[10px] font-bold uppercase tracking-widest text-outline whitespace-nowrap',
+        className
+      )}
       {...props}
     />
   )

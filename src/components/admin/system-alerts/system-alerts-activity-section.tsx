@@ -41,8 +41,8 @@ export function SystemAlertsActivitySection({
           {p.activitySearchEmpty}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-outline/10 bg-surface-container-lowest shadow-[0_20px_50px_rgba(24,28,32,0.04)]">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-outline/10 bg-surface-container-lowest shadow-[0_20px_50px_rgba(24,28,32,0.04)]">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="bg-surface-container-low/80 text-[11px] uppercase tracking-wider text-on-surface-variant">
                 <th className="px-4 py-3">{p.colMonitor}</th>

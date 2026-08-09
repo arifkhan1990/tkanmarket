@@ -126,8 +126,8 @@ export function TermsOfServiceContent({ locale, messages }: TermsOfServiceConten
 
           <section id="tos-fees" className="scroll-mt-28 space-y-6">
             <h2 className="font-headline text-3xl font-bold text-on-surface">{t.feeTableTitle}</h2>
-            <div className="overflow-hidden rounded-2xl border border-outline/15">
-              <table className="w-full border-collapse text-left">
+            <div className="overflow-x-auto rounded-2xl border border-outline/15">
+              <table className="w-full min-w-[560px] border-collapse text-left">
                 <thead>
                   <tr className="bg-surface-container-high">
                     <th className="p-4 font-headline text-sm font-bold">{t.feeColType}</th>

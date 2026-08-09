@@ -91,8 +91,8 @@ export function PrivacyPolicyContent({ locale, messages }: PrivacyPolicyContentP
           <section id="usage" className="scroll-mt-32 space-y-6">
             <h2 className="font-heading text-2xl font-bold text-on-surface md:text-3xl">{p.usageTitle}</h2>
             <p className="leading-loose text-on-surface-variant">{p.usageLead}</p>
-            <div className="overflow-hidden rounded-3xl border border-outline/10 bg-surface-container-low">
-              <table className="w-full border-collapse text-left">
+            <div className="overflow-x-auto rounded-3xl border border-outline/10 bg-surface-container-low">
+              <table className="w-full min-w-[560px] border-collapse text-left">
                 <thead>
                   <tr className="bg-surface-container-high/80">
                     <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-outline md:px-6 md:py-4">

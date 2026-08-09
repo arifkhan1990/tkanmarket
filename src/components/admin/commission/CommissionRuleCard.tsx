@@ -108,8 +108,8 @@ export function CommissionRuleCard({
       </div>
 
       {rule.tierMode === 'TIERED' && rule.tiers && rule.tiers.length > 0 ? (
-        <div className="overflow-hidden rounded-xl border border-outline/10">
-          <div className="grid grid-cols-4 gap-2 bg-surface-container-high px-4 py-2 text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
+        <div className="overflow-x-auto rounded-xl border border-outline/10">
+          <div className="grid min-w-[480px] grid-cols-4 gap-2 bg-surface-container-high px-4 py-2 text-xs font-bold uppercase tracking-tighter text-on-surface-variant">
             <div>{m.tierVolume}</div>
             <div>{m.tierCommission}</div>
             <div>{m.tierMerchants}</div>
@@ -119,7 +119,7 @@ export function CommissionRuleCard({
             {rule.tiers.map((t, idx) => (
               <div
                 key={`${t.volumeLabel}-${idx}`}
-                className="grid grid-cols-4 items-center border-t border-outline/5 px-4 py-4 text-sm odd:bg-muted/30"
+                className="grid min-w-[480px] grid-cols-4 items-center border-t border-outline/5 px-4 py-4 text-sm odd:bg-muted/30"
               >
                 <div className="font-mono">{t.volumeLabel}</div>
                 <div className="font-bold text-primary">{t.commissionPercent}%</div>

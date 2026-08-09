@@ -128,8 +128,8 @@ export function AdminSystemBackupClient() {
                 Derived from crawler runs — use as a continuity index alongside your real database backups.
               </p>
             </div>
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface-container-lowest">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto rounded-2xl border border-border bg-surface-container-lowest">
+              <table className="w-full min-w-[720px] text-left text-sm">
                 <thead>
                   <tr className="bg-muted/50 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                     <th className="px-5 py-4">Snapshot ID</th>

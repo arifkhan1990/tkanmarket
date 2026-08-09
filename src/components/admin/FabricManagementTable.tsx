@@ -928,7 +928,7 @@ export function FabricManagementTable({
             </Button>
           </div>
         ) : null}
-        <Table>
+        <Table className="min-w-[1200px]">
           <TableHeader className="bg-surface-container-low/80">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>

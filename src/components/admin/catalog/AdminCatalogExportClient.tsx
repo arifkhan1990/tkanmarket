@@ -362,8 +362,8 @@ export function AdminCatalogExportClient({ variant = 'catalog' }: { variant?: 'c
               <p className="text-sm text-muted-foreground">Recent jobs from the catalog export pipeline</p>
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface-container-lowest">
-            <div className="grid grid-cols-5 gap-2 border-b border-border bg-muted/50 p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground md:gap-4">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-surface-container-lowest">
+            <div className="grid min-w-[720px] grid-cols-5 gap-2 border-b border-border bg-muted/50 p-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground md:gap-4">
               <div>Export ID</div>
               <div>Timestamp</div>
               <div>Records</div>
@@ -374,7 +374,7 @@ export function AdminCatalogExportClient({ variant = 'catalog' }: { variant?: 'c
               {data.recentJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="grid grid-cols-1 items-center gap-2 p-4 text-sm md:grid-cols-5 md:gap-4"
+                  className="grid min-w-[720px] grid-cols-5 items-center gap-2 p-4 text-sm md:gap-4"
                 >
                   <div className="font-mono font-medium text-primary">#{job.id}</div>
                   <div className="text-muted-foreground">{new Date(job.createdAt).toLocaleString()}</div>

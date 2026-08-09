@@ -57,7 +57,7 @@ export function useSocialIntegrationMutations() {
       return json.data.authorizationUrl
     },
     onSuccess: (authorizationUrl) => {
-      window.location.href = authorizationUrl
+      window.open(authorizationUrl, '_blank')
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : 'Failed to connect')
