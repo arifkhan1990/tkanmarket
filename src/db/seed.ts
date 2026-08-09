@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 import { and, count, eq, isNull } from 'drizzle-orm'
 
+import { hashPassword } from '../lib/auth/password'
 import { computeWholesaleTiersFromSimulator } from '../lib/wholesale-pricing/compute-tiers'
 import { logger } from '../lib/logger'
 import { getDb } from './index'
@@ -63,16 +64,24 @@ function envOrDefault(params: { name: string; defaultValue: string }): string {
   return params.defaultValue
 }
 
-async function ensureAdminUser(params: { email: string; name: string }) {
+async function ensureAdminUser(params: { email: string; name: string; password: string }) {
   const db = getDb()
 
   const existing = await db
-    .select({ id: users.id })
+    .select({ id: users.id, passwordHash: users.passwordHash })
     .from(users)
     .where(eq(users.email, params.email))
     .limit(1)
 
-  if (existing[0]?.id) return existing[0].id
+  if (existing[0]?.id) {
+    if (!existing[0].passwordHash) {
+      await db
+        .update(users)
+        .set({ passwordHash: hashPassword(params.password), updatedAt: new Date() })
+        .where(eq(users.id, existing[0].id))
+    }
+    return existing[0].id
+  }
 
   const inserted = await db
     .insert(users)
@@ -81,7 +90,7 @@ async function ensureAdminUser(params: { email: string; name: string }) {
       name: params.name,
       role: 'ADMIN',
       avatarUrl: null,
-      passwordHash: null,
+      passwordHash: hashPassword(params.password),
       updatedAt: new Date(),
       deletedAt: null
     })
@@ -747,9 +756,9 @@ async function seedRawProduct() {
 
 async function main() {
   const adminEmail = envOrDefault({ name: 'ADMIN_EMAIL', defaultValue: 'admin@tkanmarket.local' })
-  envOrDefault({ name: 'ADMIN_PASSWORD', defaultValue: 'dev-only-password' }) // required by auth bootstrap
+  const adminPassword = envOrDefault({ name: 'ADMIN_PASSWORD', defaultValue: 'admin123' })
 
-  const adminUserId = await ensureAdminUser({ email: adminEmail, name: 'TkanMarket Admin' })
+  const adminUserId = await ensureAdminUser({ email: adminEmail, name: 'TkanMarket Admin', password: adminPassword })
   await ensureAdminSettings(adminEmail)
   await seedFabricCategoryTerms()
 

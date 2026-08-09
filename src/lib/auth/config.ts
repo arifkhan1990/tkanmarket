@@ -6,7 +6,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { getDb } from '@/db'
 import { users } from '@/db/schema/users.schema'
 import { getAuthRequestMeta } from '@/lib/auth/request-meta'
-import { hashPassword, verifyPassword } from '@/lib/auth/password'
+import { verifyPassword } from '@/lib/auth/password'
 import { verifyTotp } from '@/lib/auth/totp'
 import { isValidRecoveryCode } from '@/lib/auth/recovery-codes'
 import { AdminTotpRecoveryCodeService } from '@/services/admin-totp-recovery-codes.service'
@@ -19,15 +19,6 @@ const CredentialsSchema = z.object({
   password: z.string().min(8),
   totpCode: z.string().optional()
 })
-
-function getAdminEnv() {
-  const adminEmail = process.env.ADMIN_EMAIL
-  const adminPassword = process.env.ADMIN_PASSWORD
-  if (!adminEmail || !adminPassword) {
-    throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set')
-  }
-  return { adminEmail, adminPassword }
-}
 
 function resolveAuthTrustHost(): boolean {
   if (process.env.NODE_ENV !== 'production') return true
@@ -76,87 +67,31 @@ export const authConfig = {
 
           let u = rows[0]
           if (!u) {
-            // Bootstrap: allow first admin login via env, then persist user in DB.
-            // This keeps the rest of the app consistent (numeric user id, RBAC, audit trails).
-            let envOk = false
-            try {
-              const { adminEmail, adminPassword } = getAdminEnv()
-              envOk =
-                parsed.data.email.toLowerCase() === adminEmail.toLowerCase() &&
-                parsed.data.password === adminPassword
-            } catch {
-              envOk = false
-            }
-
-            if (!envOk) {
-              await AuthSecurityEventService.record({
-                email: parsed.data.email,
-                eventType: 'login_failure',
-                success: false,
-                ip: meta.ip,
-                userAgent: meta.userAgent,
-                metadata: { reason: 'user_not_found' }
-              })
-              return null
-            }
-
-            try {
-              const inserted = await db
-                .insert(users)
-                .values({
-                  email: parsed.data.email,
-                  name: 'Admin',
-                  role: 'ADMIN',
-                  passwordHash: hashPassword(parsed.data.password),
-                  totpEnabled: false
-                })
-                .returning({
-                  id: users.id,
-                  email: users.email,
-                  name: users.name,
-                  role: users.role,
-                  passwordHash: users.passwordHash,
-                  totpSecret: users.totpSecret,
-                  totpEnabled: users.totpEnabled
-                })
-
-              u = inserted[0]
-            } catch {
-              // If a parallel request created the user, re-fetch.
-              const retry = await db
-                .select({
-                  id: users.id,
-                  email: users.email,
-                  name: users.name,
-                  role: users.role,
-                  passwordHash: users.passwordHash,
-                  totpSecret: users.totpSecret,
-                  totpEnabled: users.totpEnabled
-                })
-                .from(users)
-                .where(and(eq(users.email, parsed.data.email), isNull(users.deletedAt)))
-                .limit(1)
-              u = retry[0]
-            }
-
-            if (!u) return null
+            await AuthSecurityEventService.record({
+              email: parsed.data.email,
+              eventType: 'login_failure',
+              success: false,
+              ip: meta.ip,
+              userAgent: meta.userAgent,
+              metadata: { reason: 'user_not_found' }
+            })
+            return null
           }
 
-          let passwordOk = false
-          // Prefer DB password hash when present.
-          if (u.passwordHash) {
-            passwordOk = verifyPassword(parsed.data.password, u.passwordHash)
-          } else {
-            // Bootstrap fallback: allow env-based login until passwords are set in DB.
-            try {
-              const { adminEmail, adminPassword } = getAdminEnv()
-              passwordOk =
-                parsed.data.email.toLowerCase() === adminEmail.toLowerCase() &&
-                parsed.data.password === adminPassword
-            } catch {
-              passwordOk = false
-            }
+          if (!u.passwordHash) {
+            await AuthSecurityEventService.record({
+              userId: u.id,
+              email: u.email,
+              eventType: 'login_failure',
+              success: false,
+              ip: meta.ip,
+              userAgent: meta.userAgent,
+              metadata: { reason: 'no_password_hash' }
+            })
+            return null
           }
+
+          const passwordOk = verifyPassword(parsed.data.password, u.passwordHash)
 
           if (!passwordOk) {
             await AuthSecurityEventService.record({

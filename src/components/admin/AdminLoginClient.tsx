@@ -47,7 +47,7 @@ export function AdminLoginClient() {
       }
 
       toast.success(m.welcomeBack)
-      router.push('/admin/dashboard')
+      window.location.href = '/admin/dashboard'
     } catch {
       toast.error(m.loginFailed)
     } finally {
