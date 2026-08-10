@@ -99,6 +99,17 @@ export const BULK_IMPORT_STATUS = [
   'FAILED'
 ] as const
 
+/** The 5 AI image generation types (elite prompt engine). Single source of truth for the admin image studio. */
+export const ELITE_IMAGE_PROMPT_TYPES = [
+  { type: 'fabricRoll', label: 'Fabric Roll Shot' },
+  { type: 'foldedStack', label: 'Folded Stack Shot' },
+  { type: 'elegantDrape', label: 'Elegant Drape Shot' },
+  { type: 'flatLay', label: 'Flat Lay Open Shot' },
+  { type: 'tailoredGarment', label: 'Tailored Garment Shot' },
+  { type: 'openSheets', label: 'Open Multi-Sheet Shot' }
+] as const
+export type EliteImagePromptType = (typeof ELITE_IMAGE_PROMPT_TYPES)[number]['type']
+
 export const FABRIC_MATERIALS = [
   'Хлопок',
   'Лён',

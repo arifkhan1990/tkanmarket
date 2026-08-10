@@ -17,7 +17,7 @@ if (!connection) {
 const worker = new Worker<ImageGenerationJobPayload>(
   QUEUE_NAMES.IMAGE_GENERATION,
   async (job) => {
-    const { fabricId, prompt, isBatch } = job.data
+    const { fabricId, prompt, isBatch, promptType, count } = job.data
 
     if (isBatch) {
       logger.info('Processing batch image generation', { jobId: job.id, fabricId })
@@ -33,6 +33,23 @@ const worker = new Worker<ImageGenerationJobPayload>(
         await addImageJob(fabricId, urls)
       }
       logger.info('Batch image generation completed', { jobId: job.id, fabricId, count: results.length })
+      return
+    }
+
+    if (promptType) {
+      logger.info('Processing targeted image generation', { jobId: job.id, fabricId, promptType, count })
+      let results
+      try {
+        results = await ImageGenerationService.generateByTypeForFabric(fabricId, promptType, count ?? 1)
+      } catch (err) {
+        await discardIfNonRetryable(job, err)
+        throw err
+      }
+      const urls = results.map(r => r.storageUrl).filter(Boolean) as string[]
+      if (urls.length > 0) {
+        await addImageJob(fabricId, urls)
+      }
+      logger.info('Targeted image generation completed', { jobId: job.id, fabricId, promptType, count: results.length })
       return
     }
 

@@ -24,6 +24,7 @@ export interface AdminUnifiedQueueJobItem {
   failedReason: string | null
   crawlerRunId: number | null
   fabricId: number | null
+  fabricTitle: string | null
 }
 
 export interface AdminUnifiedQueueJobsResponse {

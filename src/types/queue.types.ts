@@ -64,6 +64,10 @@ export type ImageGenerationJobPayload = {
   fabricId: number
   prompt: string
   isBatch?: boolean
+  /** Target one of the 5 elite image types (fabricRoll | foldedStack | elegantDrape | flatLay | tailoredGarment). */
+  promptType?: string
+  /** How many images of that type to generate (default 1). Never touches existing media. */
+  count?: number
 }
 
 export type VideoGenerationJobPayload = {

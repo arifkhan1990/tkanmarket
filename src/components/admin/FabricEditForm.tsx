@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, CheckCircle2, CircleDollarSign, ExternalLink, Film, ImageIcon, Layers, RefreshCw, Save, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, CircleDollarSign, ExternalLink, Film, ImageIcon, ImagePlus, Layers, Plus, RefreshCw, Save, XCircle } from 'lucide-react'
 
 import type { ApiEnvelope } from '@/types/api-envelope.types'
 import type { FabricCompositionItem } from '@/types/fabric'
 import type { AdminFabricDetail, AdminFabricUpdateInput } from '@/types/admin-fabric-management.types'
+import { ELITE_IMAGE_PROMPT_TYPES } from '@/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -126,12 +127,54 @@ export function FabricEditForm({ fabric }: { fabric: AdminFabricDetail }) {
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error('Failed to load generated media')
       return json.data as {
-        images: Array<{ id: number; url: string | null; status: string; prompt: string }>
+        images: Array<{ id: number; url: string | null; status: string; prompt: string; metadata?: { promptType?: string } | null }>
         videos: Array<{ id: number; url: string | null; thumbnailUrl: string | null; status: string; durationSeconds: number | null }>
       }
     },
     refetchInterval: 5000
   })
+
+  const [imageGenCounts, setImageGenCounts] = React.useState<Record<string, number>>({})
+
+  const hasMultipleSheets = React.useMemo(
+    () => (fabric.images ?? []).filter((url) => !url.includes('/generated/')).length >= 2,
+    [fabric.images]
+  )
+
+  const studioPromptTypes = React.useMemo(
+    () => ELITE_IMAGE_PROMPT_TYPES.filter((t) => t.type !== 'openSheets' || hasMultipleSheets),
+    [hasMultipleSheets]
+  )
+
+  const generateByTypeMutation = useMutation({
+    mutationFn: async ({ promptType, count }: { promptType: string; count: number }) => {
+      const res = await fetch(`/api/v1/admin/fabrics/${fabric.id}/generate-image`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt_type: promptType, count })
+      })
+      const json = (await res.json()) as ApiEnvelope<unknown>
+      if (!res.ok || !json.success) throw new Error(!json.success ? json.error.message : messages.admin.leadsTimeline.requestFailed)
+      return json.data
+    },
+    onSuccess: () => {
+      toast.success('Image generation queued')
+      void refetchGeneratedMedia()
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to queue image generation')
+  })
+
+  const imageCountsByType = React.useMemo(() => {
+    const total: Record<string, number> = {}
+    const pending: Record<string, number> = {}
+    for (const img of generatedMediaData?.images ?? []) {
+      const t = img.metadata?.promptType
+      if (!t) continue
+      total[t] = (total[t] ?? 0) + 1
+      if (img.status === 'PENDING' || img.status === 'PROCESSING') pending[t] = (pending[t] ?? 0) + 1
+    }
+    return { total, pending }
+  }, [generatedMediaData])
 
   React.useEffect(() => {
     const err = updateMutation.error ?? approveMutation.error ?? rejectMutation.error
@@ -530,17 +573,93 @@ export function FabricEditForm({ fabric }: { fabric: AdminFabricDetail }) {
               <p className="text-xs text-on-surface-variant italic">No AI videos generated yet for this fabric. Use the video generation dialog above.</p>
             )}
 
+            <div className="border-t border-outline/10 pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <ImagePlus className="h-4 w-4 text-primary" aria-hidden />
+                <div className="text-sm font-semibold text-on-surface">AI Image Studio</div>
+              </div>
+              {hasMultipleSheets ? (
+                <div className="mb-3 rounded-md border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[11px] leading-snug text-on-surface-variant">
+                  Multiple fabric sheets detected in raw data — the <span className="font-semibold text-on-surface">Open Multi-Sheet Shot</span> is enabled and is also generated automatically on batch runs.
+                </div>
+              ) : null}
+              <div className="space-y-2">
+                {studioPromptTypes.map((type) => {
+                  const total = imageCountsByType.total[type.type] ?? 0
+                  const pending = imageCountsByType.pending[type.type] ?? 0
+                  const generatingThisType = generateByTypeMutation.isPending && generateByTypeMutation.variables?.promptType === type.type
+                  return (
+                    <div key={type.type} className="space-y-2 rounded-lg border border-outline/15 bg-surface-container-low p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs font-semibold text-on-surface">{type.label}</span>
+                        <Badge
+                          intent={pending > 0 ? 'warning' : 'default'}
+                          className="shrink-0 px-2 py-0.5 text-[9px]"
+                        >
+                          {total} generated{pending > 0 ? ` · ${pending} queued` : ''}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 flex-1 text-xs"
+                          disabled={generateByTypeMutation.isPending}
+                          onClick={() => generateByTypeMutation.mutate({ promptType: type.type, count: 1 })}
+                        >
+                          <RefreshCw className={cn('h-3.5 w-3.5', generatingThisType && 'animate-spin')} aria-hidden />
+                          Regenerate
+                        </Button>
+                        <Select
+                          value={String(imageGenCounts[type.type] ?? 3)}
+                          onValueChange={(v) => setImageGenCounts((prev) => ({ ...prev, [type.type]: Number(v) }))}
+                        >
+                          <SelectTrigger className="h-8 w-[72px]" aria-label={`More ${type.label} count`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 5, 10].map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                +{n}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 flex-1 text-xs"
+                          disabled={generateByTypeMutation.isPending}
+                          onClick={() => generateByTypeMutation.mutate({ promptType: type.type, count: imageGenCounts[type.type] ?? 3 })}
+                        >
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          Generate more
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
             {generatedMediaData?.images && generatedMediaData.images.length > 0 ? (
               <div>
                 <div className="text-xs font-semibold text-on-surface-variant mb-2">Generated Images ({generatedMediaData.images.length})</div>
                 <div className="grid grid-cols-3 gap-2">
-                  {generatedMediaData.images.map((img) => (
-                    img.url ? (
+                  {generatedMediaData.images.map((img) => {
+                    const label = ELITE_IMAGE_PROMPT_TYPES.find((t) => t.type === img.metadata?.promptType)?.label
+                    return img.url ? (
                       <a key={img.id} href={img.url} target="_blank" rel="noopener noreferrer" className="relative aspect-square overflow-hidden rounded-md bg-surface-container-high border">
                         <img src={img.url} alt="" className="h-full w-full object-cover" />
+                        {label ? (
+                          <span className="absolute bottom-0 inset-x-0 truncate bg-black/50 px-1 py-0.5 text-[9px] font-semibold text-white">
+                            {label}
+                          </span>
+                        ) : null}
                       </a>
                     ) : null
-                  ))}
+                  })}
                 </div>
               </div>
             ) : null}

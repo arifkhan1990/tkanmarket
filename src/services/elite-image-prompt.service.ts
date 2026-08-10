@@ -182,7 +182,45 @@ function buildPrompt(
 }
 
 export class EliteImagePromptService {
-  static generatePrompts(fabric: ElitePromptFabricData): ElitePromptConfig[] {
+  /**
+   * True when the raw fabric data carries 2+ physical fabric sheets (raw photos,
+   * ignoring AI `/generated/` images). When this is the case the prompt engine
+   * adds an "open multi-sheet" group shot that shows every sheet together.
+   */
+  static hasMultipleFabricSheets(imageUrls: string[] | null): boolean {
+    const rawImages = (imageUrls ?? []).filter((url) => !url.includes('/generated/'))
+    return rawImages.length >= 2
+  }
+
+  /** Open multi-sheet group shot — shows every fabric sheet from the raw data spread open together. */
+  static openSheetsConfig(fabric: ElitePromptFabricData): ElitePromptConfig {
+    const productName = fabric.titleEn ?? fabric.titleRu ?? 'Fabric'
+    const finalColor = resolveFinalColor(fabric)
+    const design = inferDesign(fabric)
+    const gsm = fabric.gsm != null ? String(fabric.gsm) : 'premium-weight'
+    const composition = formatComposition(fabric.composition)
+
+    const ctx = {
+      productName,
+      finalColor,
+      gsm,
+      composition,
+      targetGarment: '',
+      design
+    }
+
+    return {
+      type: 'openSheets',
+      label: 'Open Multi-Sheet Shot',
+      prompt: buildPrompt(
+        'Open fabric sheet showcase: multiple full-width sheets of {{PRODUCT_NAME}} fabric in {{FINAL_COLOR}} spread open flat, side by side, on a seamless studio surface. If the reference raw image contains a stack or arrangement of multiple color cut swatches or multiple fabric sheets, the open sheets MUST be arranged in the exact same color and content sequence as the raw reference, with every sheet keeping its own exact shade and finish. High-fidelity capture of the exact {{WEIGHT}} g/m² texture structure and fiber density, perfectly rendering the unique surface details, weaves, or embellishments of each sheet — {{DESIGN_DETAIL}}. Shot with a Hasselblad H6D-100c, 100mm macro lens, f/8 aperture for deep field of view. Studio cyclorama background, crisp diffused lighting that eliminates glare on every sheet, photorealistic, 8k resolution, immaculate detail.',
+        ctx
+      ),
+      count: 1
+    }
+  }
+
+  static generatePrompts(fabric: ElitePromptFabricData, options?: { hasMultipleSheets?: boolean }): ElitePromptConfig[] {
     const productName = fabric.titleEn ?? fabric.titleRu ?? 'Fabric'
     const finalColor = resolveFinalColor(fabric)
     const design = inferDesign(fabric)
@@ -199,7 +237,7 @@ export class EliteImagePromptService {
       design
     }
 
-    return [
+    const prompts: ElitePromptConfig[] = [
       {
         type: 'fabricRoll',
         label: 'Fabric Roll Shot',
@@ -246,5 +284,11 @@ export class EliteImagePromptService {
         count: 1
       }
     ]
+
+    if (options?.hasMultipleSheets) {
+      prompts.push(this.openSheetsConfig(fabric))
+    }
+
+    return prompts
   }
 }

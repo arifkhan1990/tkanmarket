@@ -2,7 +2,10 @@ import type { Job } from 'bullmq'
 
 import { QUEUE_NAMES } from '@/constants'
 import { logger } from '@/lib/logger'
-import { getAIQueue, getCrawlerQueue, getImageQueue, getSocialQueue } from '@/lib/queue/definitions'
+import { getDb } from '@/db'
+import { fabrics } from '@/db/schema/fabrics.schema'
+import { inArray } from 'drizzle-orm'
+import { getAIQueue, getCrawlerQueue, getImageGenerationQueue, getImageQueue, getSocialQueue, getTranslationQueue, getVideoGenerationQueue } from '@/lib/queue/definitions'
 import type { AdminUnifiedQueueJobItem, AdminUnifiedQueueJobsResponse } from '@/types/admin-job-queue.types'
 
 const JOB_STATES = ['waiting', 'active', 'delayed', 'completed', 'failed'] as const
@@ -11,7 +14,10 @@ const PER_STATE_LIMIT = 16
 const QUEUE_CONFIG = [
   { name: QUEUE_NAMES.CRAWLER, queue: getCrawlerQueue, kind: 'crawler' as const },
   { name: QUEUE_NAMES.AI, queue: getAIQueue, kind: 'ai' as const },
+  { name: QUEUE_NAMES.TRANSLATION, queue: getTranslationQueue, kind: 'ai' as const },
   { name: QUEUE_NAMES.IMAGE, queue: getImageQueue, kind: 'image' as const },
+  { name: QUEUE_NAMES.IMAGE_GENERATION, queue: getImageGenerationQueue, kind: 'image' as const },
+  { name: QUEUE_NAMES.VIDEO_GENERATION, queue: getVideoGenerationQueue, kind: 'image' as const },
   { name: QUEUE_NAMES.SOCIAL, queue: getSocialQueue, kind: 'social' as const }
 ] as const
 
@@ -39,9 +45,10 @@ function parseCrawlerRunId(job: Job): number | null {
 }
 
 function parseFabricId(job: Job): number | null {
-  const data = job.data as { entityId?: unknown } | undefined
-  if (typeof data?.entityId === 'number' && Number.isInteger(data.entityId) && data.entityId > 0) {
-    return data.entityId
+  const data = job.data as { entityId?: unknown; fabricId?: unknown } | undefined
+  const raw = data?.entityId ?? data?.fabricId
+  if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) {
+    return raw
   }
   return null
 }
@@ -65,7 +72,29 @@ function mapJob(job: Job, queueName: (typeof QUEUE_CONFIG)[number]['name'], kind
     runtimeMs: runtimeMs(job),
     failedReason: failedRaw ? truncate(failedRaw, 400) : null,
     crawlerRunId: kind === 'crawler' ? parseCrawlerRunId(job) : null,
-    fabricId: kind !== 'crawler' ? parseFabricId(job) : null
+    fabricId: kind !== 'crawler' ? parseFabricId(job) : null,
+    fabricTitle: null
+  }
+}
+
+async function attachFabricTitles(items: AdminUnifiedQueueJobItem[]): Promise<void> {
+  const fabricIds = Array.from(
+    new Set(items.map((row) => row.fabricId).filter((id): id is number => id !== null && id > 0))
+  )
+  if (fabricIds.length === 0) return
+
+  try {
+    const db = getDb()
+    const rows = await db
+      .select({ id: fabrics.id, titleRu: fabrics.titleRu, titleEn: fabrics.titleEn })
+      .from(fabrics)
+      .where(inArray(fabrics.id, fabricIds))
+    const byId = new Map(rows.map((r) => [r.id, r.titleEn ?? r.titleRu]))
+    for (const item of items) {
+      if (item.fabricId) item.fabricTitle = byId.get(item.fabricId) ?? null
+    }
+  } catch (err) {
+    logger.error('AdminUnifiedQueueJobsService.attachFabricTitles failed', { err })
   }
 }
 
@@ -97,6 +126,8 @@ export class AdminUnifiedQueueJobsService {
       logger.error('AdminUnifiedQueueJobsService.listRecent failed', { err })
       throw err
     }
+
+    await attachFabricTitles(merged)
 
     const sortKey = (row: AdminUnifiedQueueJobItem) => {
       const fin = row.finishedAt ? new Date(row.finishedAt).getTime() : 0

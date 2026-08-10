@@ -108,15 +108,18 @@ export class PinterestPublisher extends BasePlatformPublisher {
   private async resolveDefaultBoardId(credential: PlatformCredential): Promise<string> {
     const metaBoard = stringOrNull((credential.metadata ?? {}).defaultBoardId as string | undefined)
     if (metaBoard) return metaBoard
-    const res = await platformFetch(`${BASE}/boards?page_size=1`, {
+    const res = await platformFetch(`${BASE}/boards?page_size=25`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${credential.accessToken}` }
     }, { platform: this.platform })
     const responseBody = asRecord(res.json)
     const rawItems = responseBody.items
     const items: unknown[] = Array.isArray(rawItems) ? rawItems : []
-    const first = items[0]
-    const id = stringOrNull(asRecord(first).id)
+    const boards = items.map(asRecord)
+    const id =
+      stringOrNull(boards.find((b) => stringOrNull(b.privacy) === 'PUBLIC')?.id) ??
+      stringOrNull(boards.find((b) => stringOrNull(b.privacy) !== 'SECRET')?.id) ??
+      stringOrNull(boards[0]?.id)
     if (!id) {
       throw new PlatformPublishError('Pinterest publish: no board available on account', { platform: this.platform, status: 412, retryable: false })
     }

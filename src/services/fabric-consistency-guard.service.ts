@@ -34,14 +34,17 @@ export class FabricConsistencyGuardService {
 
     const consistencyBlock = [
       `[CRITICAL RAW DATA ANCHOR & LOCK FOR 100% B2B FIDELITY]:`,
-      `- EXACT TARGET COLOR & PALETTE: "${color}" (DO NOT alter color, shade, tint, tone, or hue. Output MUST strictly match original raw fabric color specification).`,
-      `- MULTI-COLOR SWATCH TO ROLL SEQUENCE MATCHING: If the raw source image contains a stack or bundle of small cut fabric swatches in multiple colors, the generated fabric roll shot MUST arrange the rolls in the EXACT SAME color and design sequence as shown in the raw swatch stack.`,
+      `- SWATCH CARD / SAMPLE SHEET DETECTION: First examine the raw reference image. If it contains a fabric swatch card, fabric swatch sample sheet, or textile color swatch sheet (a single swatch, a ring/card-mounted swatch, or a sheet holding several swatches), DETECT it and extract from that swatch the exact true fabric color, exact weave/knit texture, and exact pattern/design repeat. Every generated image MUST reproduce these 1:1 from the raw swatch.`,
+      `- EXACT TARGET COLOR & PALETTE: "${color}" (DO NOT alter color, shade, tint, tone, or hue. Output MUST strictly match the original raw fabric color specification).`,
+      `- TEXTURE & PATTERN FIDELITY: Replicate the exact weave architecture, knit structure, print/pattern repeat, and design layout visible on the raw swatch. Never invent or substitute texture, pattern, or design elements that are not present in the raw reference.`,
+      `- MULTI-SWATCH SEQUENCE MATCHING: If the raw reference shows MULTIPLE swatches/sheets in several colors or designs (a stack, bundle, swatch card, or sample sheet), ANY generated composition (fabric roll, folded stack, drape, flat lay, garment, or open sheet group) MUST preserve the EXACT same color/design order and sequence as shown in the raw reference.`,
+      `- SINGLE SAMPLE NORMAL PATH: If the raw reference contains only ONE fabric sample, generate the requested shot of that exact single fabric — same color, texture, pattern, and design — without adding any extra colors, swatches, or invented variety.`,
       `- EXACT FABRIC / PATTERN / WEAVE STRUCTURE: "${fabricType}" (Maintain exact weave architecture, pattern repeats, and texture context across image and video).`,
       gsm ? `- EXACT WEIGHT: "${gsm}"` : '',
       compositionStr ? `- EXACT COMPOSITION: "${compositionStr}"` : '',
       `- INTENDED USAGE & CONTEXT: "${usage}"`,
       `MANDATORY CONSTRAINTS FOR IMAGE & VIDEO: Zero color drift. Zero hallucinated colors or altered patterns. Maintain 100% strict visual and contextual fidelity to original raw fabric cut samples.`,
-      `NEGATIVE PROMPT / FORBIDDEN: wrong color, color shift, altered color sequence, mismatched pattern, hallucinated texture, inaccurate design, different fabric type.`
+      `NEGATIVE PROMPT / FORBIDDEN: wrong color, color shift, altered color sequence, mismatched pattern, hallucinated texture, inaccurate design, different fabric type, invented multi-color swatches that are not present in the raw reference.`
     ]
       .filter(Boolean)
       .join('\n')

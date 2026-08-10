@@ -149,9 +149,13 @@ export class TikTokPublisher extends BasePlatformPublisher {
       body: JSON.stringify({})
     }, { platform: this.platform })
     const creator = asRecord(asRecord(creatorRes.json).data)
-    const privacyLevel = Array.isArray(creator.privacy_level_options) && creator.privacy_level_options.length > 0
-      ? String(creator.privacy_level_options[0])
-      : 'SELF_ONLY'
+    const privacyOptions = Array.isArray(creator.privacy_level_options)
+      ? creator.privacy_level_options.map((option) => String(option))
+      : []
+    const privacyLevel =
+      privacyOptions.find((option) => option === 'PUBLIC_TO_EVERYONE') ??
+      privacyOptions.find((option) => option !== 'SELF_ONLY') ??
+      'SELF_ONLY'
 
     const tags = post.hashtags.join(' ')
     const title = `${post.captionText}${tags.length > 0 ? `\n${tags}` : ''}`.slice(0, 2200)

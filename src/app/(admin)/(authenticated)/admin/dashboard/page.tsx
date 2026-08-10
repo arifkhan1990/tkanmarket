@@ -6,6 +6,7 @@ import { LeadsBySourceChart } from '@/components/admin/charts/LeadsBySourceChart
 import { ActivityFeed } from '@/components/admin/ActivityFeed'
 import { StatsService } from '@/services/stats.service'
 import { AdminDashboardQuickLinks } from '@/components/admin/dashboard/AdminDashboardQuickLinks'
+import { AiQueueLiveSection } from '@/components/admin/dashboard/AiQueueLiveSection'
 import { DashboardExportButton } from '@/components/admin/dashboard/DashboardExportButton'
 import { TrafficVsConversionsChart } from '@/components/admin/charts/TrafficVsConversionsChart'
 import { TopFabricCategoriesChart } from '@/components/admin/charts/TopFabricCategoriesChart'
@@ -109,6 +110,8 @@ export default async function AdminDashboardPage() {
           />
         </div>
       </section>
+
+      <AiQueueLiveSection />
 
       <AdminDashboardQuickLinks
         title={dash.quickLinksTitle}

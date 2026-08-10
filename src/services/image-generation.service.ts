@@ -8,6 +8,7 @@ import { generateGeminiImage } from '@/lib/google/client'
 import { filterFabricGalleryImageUrls } from '@/lib/fabric-gallery-image-urls'
 import { uploadFromUrl, uploadBuffer } from '@/lib/storage/r2'
 import { logger } from '@/lib/logger'
+import { ValidationError } from '@/lib/errors'
 import { PromptRuleService } from '@/services/admin/prompt-rule.service'
 import { EliteImagePromptService } from '@/services/elite-image-prompt.service'
 import { FabricConsistencyGuardService } from '@/services/fabric-consistency-guard.service'
@@ -122,25 +123,33 @@ export class ImageGenerationService {
       descriptionRu: fabric.descriptionRu
     })
 
-    const elitePrompts = EliteImagePromptService.generatePrompts({
-      titleEn: fabric.titleEn,
-      titleRu: fabric.titleRu,
-      fabricType: fabric.fabricType,
-      gsm: fabric.gsm,
-      color: fabric.color,
-      colorEn: fabric.colorEn,
-      composition: fabric.composition as Array<{ material: string; percentage: number }> | null,
-      usageRu: fabric.usageRu,
-      usageEn: fabric.usageEn,
-      descriptionRu: fabric.descriptionRu,
-      descriptionEn: fabric.descriptionEn,
-      tags: fabric.tags
-    })
+    const hasMultipleSheets = EliteImagePromptService.hasMultipleFabricSheets(fabric.images)
+    const elitePrompts = EliteImagePromptService.generatePrompts(
+      {
+        titleEn: fabric.titleEn,
+        titleRu: fabric.titleRu,
+        fabricType: fabric.fabricType,
+        gsm: fabric.gsm,
+        color: fabric.color,
+        colorEn: fabric.colorEn,
+        composition: fabric.composition as Array<{ material: string; percentage: number }> | null,
+        usageRu: fabric.usageRu,
+        usageEn: fabric.usageEn,
+        descriptionRu: fabric.descriptionRu,
+        descriptionEn: fabric.descriptionEn,
+        tags: fabric.tags
+      },
+      { hasMultipleSheets }
+    )
 
     const hasExplicitRule = rule && rule.conditions.length > 0 && rule.imagePrompts.length > 0
     let imagePromptConfigs = hasExplicitRule
       ? PromptRuleService.compilePrompts(rule, fabricVars).imagePrompts
       : elitePrompts
+
+    if (hasExplicitRule && hasMultipleSheets) {
+      imagePromptConfigs = [...imagePromptConfigs, EliteImagePromptService.openSheetsConfig(fabric)]
+    }
 
     const promptMeta = {
       ruleId: rule?.id ?? null,
@@ -203,6 +212,122 @@ export class ImageGenerationService {
           .where(eq(fabrics.id, fabricId))
         logger.info('Fabric thumbnail updated to 1st AI generated image with raw images preserved', { fabricId, primaryUrl })
       }
+    }
+
+    return results
+  }
+
+  /**
+   * Targeted per-type image generation for the admin image studio.
+   * Generates `count` fresh images of exactly one elite prompt type
+   * (fabricRoll | foldedStack | elegantDrape | flatLay | tailoredGarment).
+   * Fully non-destructive: existing generated media and the fabric's current
+   * image set are preserved — new URLs are only appended to `fabrics.images`.
+   */
+  static async generateByTypeForFabric(
+    fabricId: number,
+    promptType: string,
+    count: number = 1
+  ): Promise<Array<{ mediaId: number; storageUrl: string }>> {
+    const db = getDb()
+
+    const rows = await db
+      .select({
+        id: fabrics.id,
+        titleEn: fabrics.titleEn,
+        titleRu: fabrics.titleRu,
+        fabricType: fabrics.fabricType,
+        color: fabrics.color,
+        colorEn: fabrics.colorEn,
+        gsm: fabrics.gsm,
+        composition: fabrics.composition,
+        tags: fabrics.tags,
+        supplyType: fabrics.supplyType,
+        usageRu: fabrics.usageRu,
+        usageEn: fabrics.usageEn,
+        descriptionEn: fabrics.descriptionEn,
+        descriptionRu: fabrics.descriptionRu,
+        images: fabrics.images
+      })
+      .from(fabrics)
+      .where(and(eq(fabrics.id, fabricId), isNull(fabrics.deletedAt)))
+      .limit(1)
+
+    const fabric = rows[0]
+    if (!fabric) throw new Error('Fabric not found')
+
+    const hasMultipleSheets = EliteImagePromptService.hasMultipleFabricSheets(fabric.images)
+    const elitePrompts = EliteImagePromptService.generatePrompts(
+      {
+        titleEn: fabric.titleEn,
+        titleRu: fabric.titleRu,
+        fabricType: fabric.fabricType,
+        gsm: fabric.gsm,
+        color: fabric.color,
+        colorEn: fabric.colorEn,
+        composition: fabric.composition as Array<{ material: string; percentage: number }> | null,
+        usageRu: fabric.usageRu,
+        usageEn: fabric.usageEn,
+        descriptionRu: fabric.descriptionRu,
+        descriptionEn: fabric.descriptionEn,
+        tags: fabric.tags
+      },
+      { hasMultipleSheets }
+    )
+
+    const config = elitePrompts.find((c) => c.type === promptType)
+    if (!config) {
+      throw new ValidationError(
+        `Unknown image prompt type "${promptType}". Supported: ${elitePrompts.map((c) => c.type).join(', ')}`
+      )
+    }
+
+    const safeCount = Math.max(1, Math.min(count, 10))
+    const lockedPrompt = FabricConsistencyGuardService.enforceRawDataLock(config.prompt, fabric)
+    const inputImages = await fetchImagesAsInlineData(fabric.images)
+
+    const settled = await Promise.allSettled(
+      Array.from({ length: safeCount }, (_, i) =>
+        this.generateSingleImage(fabricId, lockedPrompt, fabric, {
+          ruleId: null,
+          ruleName: 'elite-prompt-engine',
+          promptType: config.type,
+          promptLabel: config.label,
+          batchIndex: i,
+          inputImages
+        })
+      )
+    )
+
+    const results: Array<{ mediaId: number; storageUrl: string }> = []
+    const errors: string[] = []
+    for (const s of settled) {
+      if (s.status === 'fulfilled') results.push(s.value)
+      else errors.push(s.reason?.message ?? 'Unknown error')
+    }
+
+    await db.insert(fabricActivityLog).values({
+      fabricId,
+      actorId: null,
+      eventType: 'IMAGE_BATCH_GENERATED',
+      message: `Image generation by type completed: ${results.length}/${safeCount} "${config.label}" images`,
+      payload: { promptType: config.type, promptLabel: config.label, count: safeCount, results: results.length, total: safeCount, errors },
+      updatedAt: new Date()
+    })
+
+    if (errors.length > 0) {
+      logger.warn('Targeted image generation had errors', { fabricId, promptType, errors })
+    }
+
+    if (results.length > 0) {
+      const newUrls = results.map((r) => r.storageUrl).filter(Boolean) as string[]
+      const existingImages = fabric.images ?? []
+      const updatedImages = Array.from(new Set([...existingImages, ...newUrls]))
+      await db
+        .update(fabrics)
+        .set({ images: updatedImages, updatedAt: sql`now()` })
+        .where(eq(fabrics.id, fabricId))
+      logger.info('Fabric image set extended with new generated images (existing preserved)', { fabricId, promptType, added: newUrls.length })
     }
 
     return results
@@ -374,20 +499,24 @@ export class ImageGenerationService {
         })
         prompt = PromptRuleService.compilePrompts(matchedRule, fabricVars).imagePrompts[0]?.prompt ?? `${FALLBACK_PROMPT} Fabric: ${fabric.titleEn ?? fabric.titleRu ?? 'Unknown'}`
       } else {
-        const elitePrompts = EliteImagePromptService.generatePrompts({
-          titleEn: fabric.titleEn,
-          titleRu: fabric.titleRu,
-          fabricType: fabric.fabricType,
-          gsm: fabric.gsm,
-          color: fabric.color,
-          colorEn: fabric.colorEn,
-          composition: fabric.composition as Array<{ material: string; percentage: number }> | null,
-          usageRu: fabric.usageRu,
-          usageEn: fabric.usageEn,
-          descriptionRu: fabric.descriptionRu,
-          descriptionEn: fabric.descriptionEn,
-          tags: fabric.tags
-        })
+        const hasMultipleSheets = EliteImagePromptService.hasMultipleFabricSheets(fabric.images)
+        const elitePrompts = EliteImagePromptService.generatePrompts(
+          {
+            titleEn: fabric.titleEn,
+            titleRu: fabric.titleRu,
+            fabricType: fabric.fabricType,
+            gsm: fabric.gsm,
+            color: fabric.color,
+            colorEn: fabric.colorEn,
+            composition: fabric.composition as Array<{ material: string; percentage: number }> | null,
+            usageRu: fabric.usageRu,
+            usageEn: fabric.usageEn,
+            descriptionRu: fabric.descriptionRu,
+            descriptionEn: fabric.descriptionEn,
+            tags: fabric.tags
+          },
+          { hasMultipleSheets }
+        )
         prompt = elitePrompts[0]?.prompt ?? `${FALLBACK_PROMPT} Fabric: ${fabric.titleEn ?? fabric.titleRu ?? 'Unknown'}`
         promptType = elitePrompts[0]?.type ?? 'fabricRoll'
         promptLabel = elitePrompts[0]?.label ?? 'Elite Fabric Roll Shot'
