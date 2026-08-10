@@ -104,7 +104,7 @@ export function AdminTopBar({ pageTitle }: AdminTopBarProps) {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 z-50 flex h-[var(--admin-topbar-height)] items-center justify-between gap-2',
+        'fixed inset-x-0 top-0 z-50 flex h-[var(--admin-topbar-height)] items-center justify-between gap-2',
         'border-b border-outline/10 bg-background/95 px-3 shadow-sm backdrop-blur-md sm:gap-3 sm:px-5',
         'lg:left-[var(--admin-sidebar-width)] lg:transition-[left] lg:duration-200'
       )}
@@ -134,7 +134,7 @@ export function AdminTopBar({ pageTitle }: AdminTopBarProps) {
           )}
         </Button>
 
-        <div className="flex min-w-0 max-w-[min(100%,14rem)] shrink-0 items-center gap-2 sm:max-w-[min(100%,18rem)] lg:max-w-[min(100%,13rem)] xl:max-w-[min(100%,16rem)]">
+        <div className="flex min-w-0 max-w-[min(100%,10rem)] shrink items-center gap-2 sm:max-w-[min(100%,18rem)] lg:max-w-[min(100%,13rem)] xl:max-w-[min(100%,16rem)]">
           <h1 className="min-w-0 truncate text-base font-semibold tracking-tight text-on-surface sm:text-lg">{title}</h1>
           <Badge
             intent="default"
@@ -179,7 +179,7 @@ export function AdminTopBar({ pageTitle }: AdminTopBarProps) {
           <SlidersHorizontal className="h-[1.125rem] w-[1.125rem]" aria-hidden />
         </Button>
 
-        <AdminLocaleSwitcher variant="dropdown" />
+        <AdminLocaleSwitcher variant="dropdown" className="hidden sm:inline-flex" />
 
         <Button
           variant="outline"
