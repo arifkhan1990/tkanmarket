@@ -16,7 +16,7 @@ type Props = {
 }
 
 /**
- * Shared layout for public marketing pages: surface background + optional decorative blur (landing/blog style).
+ * Shared layout for public marketing pages: surface background + optional decorative blur (blog style).
  */
 export function PublicPageShell({ children, className, contentClassName, blur = 'md', fullWidth = false }: Props) {
   return (

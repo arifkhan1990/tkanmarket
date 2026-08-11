@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAdminSession()
+    const session = await requireAdminSession()
 
     const formData = await req.formData()
     const file = formData.get('file')
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       filename: fileName,
       fileType,
       buffer,
-      uploadedByUserId: 1
+      uploadedByUserId: Number(session.user.id ?? 0)
     })
 
     if (result.totalRows > 0) {

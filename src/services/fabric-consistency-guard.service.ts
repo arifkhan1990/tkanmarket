@@ -80,16 +80,12 @@ export class FabricConsistencyGuardService {
       ].join('\n')
 
       const responseText = await callGemini(
-        [
-          {
-            role: 'user',
-            content: `${auditPrompt}\n\n[Generated Image Data: ${generatedDataUrl.slice(0, 100)}... (truncated for reference)]`
-          }
-        ],
+        [{ role: 'user', content: auditPrompt }],
         {
           model: 'gemini-3.5-flash-lite',
           responseFormat: 'json_object',
-          context: { source: 'image', fabricId: fabric.id }
+          context: { source: 'image', fabricId: fabric.id },
+          inlineImages: generatedDataUrl.startsWith('data:') ? [generatedDataUrl] : []
         }
       )
 

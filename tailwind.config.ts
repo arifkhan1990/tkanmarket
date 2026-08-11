@@ -78,7 +78,7 @@ const config: Config = {
         mono: ['var(--font-jetbrains-mono)', 'monospace'],
       },
       fontSize: {
-        // Minimal scale used for landing + cards
+        // Minimal scale used for marketing + cards
         'display-xl': ['3.5rem', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
         'display-lg': ['2.8rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
         display: ['2.25rem', { lineHeight: '1.2', letterSpacing: '-0.015em' }],

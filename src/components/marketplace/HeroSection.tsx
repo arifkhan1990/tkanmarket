@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { HeroVisualGridClient } from '@/components/marketplace/hero-visual-grid-client'
 import { withDbFallback } from '@/lib/db/with-db-fallback'
 import { cn } from '@/lib/utils'
-import { FabricService } from '@/services/fabric.service'
+import { HeroSectionService } from '@/services/hero-section.service'
 
 function ShowcaseSkeleton() {
   return (
@@ -21,7 +21,7 @@ function ShowcaseSkeleton() {
         )}
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:h-[480px] lg:h-[520px]">
-          <div className="aspect-[16/10] animate-pulse rounded-2xl bg-surface-container/60 md:col-span-8 md:aspect-auto" />
+          <div className="h-[min(74vw,392px)] animate-pulse rounded-2xl bg-surface-container/60 sm:h-[404px] md:col-span-8 md:h-auto" />
           <div className="grid grid-cols-2 gap-3 md:col-span-4 md:flex md:flex-col">
             <div className="aspect-[4/3] animate-pulse rounded-2xl bg-surface-container/50 md:aspect-auto md:flex-1" />
             <div className="aspect-[4/3] animate-pulse rounded-2xl bg-surface-container/40 md:aspect-auto md:flex-1" />
@@ -38,10 +38,18 @@ function ShowcaseSkeleton() {
 }
 
 async function HeroShowcase() {
-  const items = await withDbFallback('home.heroShowcase', () => FabricService.getFeatured(11), [])
-  const sliderItems = items.slice(0, 5)
-  const cardItems = items.length > 5 ? items.slice(5) : []
-  return <HeroVisualGridClient sliderItems={sliderItems} cardItems={cardItems} />
+  const showcase = await withDbFallback(
+    'home.heroShowcase',
+    () => HeroSectionService.getHeroShowcase(),
+    { sliderItems: [], cardItems: [], videoEmbedId: null }
+  )
+  return (
+    <HeroVisualGridClient
+      sliderItems={showcase.sliderItems}
+      cardItems={showcase.cardItems}
+      videoEmbedId={showcase.videoEmbedId}
+    />
+  )
 }
 
 export async function HeroSection() {

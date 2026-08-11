@@ -20,6 +20,8 @@ export interface PlatformPostInput {
   scriptText: string | null
   mediaUrls: string[]
   contentType: 'REEL_5' | 'REEL_8' | 'REEL_10' | 'CAROUSEL' | 'IMAGE_POST' | 'PIN'
+  /** Destination link attached to the post (e.g. the fabric detail page on TkanMarket). */
+  link?: string | null
 }
 
 export interface PlatformPublishResult {

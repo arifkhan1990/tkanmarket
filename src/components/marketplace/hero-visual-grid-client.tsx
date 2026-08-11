@@ -48,10 +48,9 @@ function getPlaceholderMeta(index: number) {
 }
 
 /* ─── Video card ──────────────────────────────────────── */
-function VideoCard() {
+function VideoCard({ embedId }: { embedId: string | null }) {
   const { messages: m } = useI18n()
   const [active, setActive] = useState(false)
-  const embedId = HOME_HERO_YOUTUBE_EMBED_ID
   const hasEmbed = typeof embedId === 'string' && embedId.length > 0
 
   return (
@@ -221,9 +220,11 @@ function FabricCard({
 export function HeroVisualGridClient({
   sliderItems,
   cardItems,
+  videoEmbedId = HOME_HERO_YOUTUBE_EMBED_ID,
 }: {
   sliderItems: FabricSummary[]
   cardItems: FabricSummary[]
+  videoEmbedId?: string | null
 }) {
   const { locale, messages } = useI18n()
   const BOTTOM_COUNT = 5
@@ -273,9 +274,9 @@ export function HeroVisualGridClient({
         )}
       >
         {/* ─── Top bento: slider + video + fabric card ─── */}
-        <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-12 md:h-[420px] lg:h-[480px] xl:h-[520px]">
+        <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-12 md:h-[428px] lg:h-[480px] xl:h-[520px]">
           {/* Main slider */}
-          <div className="aspect-[16/10] overflow-hidden rounded-2xl md:col-span-8 md:aspect-auto">
+          <div className="h-[min(74vw,392px)] overflow-hidden rounded-2xl sm:h-[404px] md:col-span-8 md:h-auto">
             {sliderItems.length > 0 ? (
               <HeroFeaturedSliderClient items={sliderItems} layout="bento" />
             ) : (
@@ -288,7 +289,7 @@ export function HeroVisualGridClient({
           {/* Right column: video + fabric card */}
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:col-span-4 md:flex md:flex-col">
             <div className="aspect-[4/3] md:aspect-auto md:flex-1">
-              <VideoCard />
+              <VideoCard embedId={videoEmbedId} />
             </div>
             {rightCard ? (
               <div className="aspect-[4/3] md:aspect-auto md:flex-1">

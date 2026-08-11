@@ -154,6 +154,7 @@ export function buildAdminNavSections(messages: Messages): AdminNavSection[] {
       items: [
         { href: '/admin/social', label: s.content, icon: Smartphone },
         { href: '/admin/social/integrations', label: s.socialIntegrations, icon: Share2 },
+        { href: '/admin/hero', label: s.hero, icon: LayoutDashboard },
         { href: '/admin/media-library', label: s.mediaLibrary, icon: Images },
         { href: '/admin/promotion-manager', label: s.promotionHub, icon: Sparkles },
         { href: '/admin/message-center', label: s.messageCenter, icon: MessageSquare },

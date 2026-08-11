@@ -83,7 +83,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
     return (
       <div
         className={cn(
-          'group relative h-[min(74vw,392px)] overflow-hidden bg-[#0a0908] sm:h-[404px] md:h-[428px]',
+          'group relative h-[min(74vw,392px)] overflow-hidden bg-[#0a0908] sm:h-[404px] md:h-[428px] lg:h-[480px]',
           'xl:h-full xl:min-h-[436px]',
           'rounded-2xl border border-white/[0.08] shadow-[0_36px_88px_-36px_rgba(0,0,0,0.62)]',
           'ring-1 ring-white/[0.06]'
@@ -118,13 +118,14 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
                     src={item.imageUrl}
                     alt={getLocalizedFabricTitle(item, locale)}
                     fill
-                    className={cn(
-                      'object-cover transition-transform duration-[1.25s] ease-[cubic-bezier(0.22,1,0.36,1)]',
-                      i === safeIndex && 'group-hover:scale-[1.04]'
-                    )}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1536px) 85vw, 1100px"
                     priority={i === 0}
                     loading={i === 0 ? 'eager' : 'lazy'}
+                    quality={85}
+                    sizes="(max-width: 640px) 92vw, (max-width: 768px) 85vw, (max-width: 1280px) 55vw, 900px"
+                    className={cn(
+                      'object-cover transition-transform duration-[1.25s] ease-[cubic-bezier(0.22,1,0.36,1)]',
+                      i === safeIndex && 'group-hover:scale-[1.03]'
+                    )}
                   />
                 ) : (
                   <div className="absolute inset-0" style={toSwatchStyle(seed)} />

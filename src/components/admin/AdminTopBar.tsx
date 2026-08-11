@@ -66,6 +66,7 @@ export function AdminTopBar({ pageTitle }: AdminTopBarProps) {
     if (pathname.startsWith('/admin/leads')) return messages.admin.topbar.leads
     if (pathname.includes('/admin/social/') && pathname.includes('/preview'))
       return messages.admin.socialPreviewPage.title
+    if (pathname.startsWith('/admin/hero')) return messages.admin.sidebar.hero
     if (pathname.startsWith('/admin/social')) return messages.admin.topbar.social
     if (pathname.startsWith('/admin/crawler')) return messages.admin.topbar.crawler
     if (pathname.startsWith('/admin/profile')) return messages.admin.sidebar.profile

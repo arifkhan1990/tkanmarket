@@ -179,11 +179,20 @@ export class ImageGenerationService {
       })
     )
 
-    const results: Array<{ mediaId: number; storageUrl: string }> = []
+    const results: Array<{ mediaId: number; storageUrl: string; sourceUri: string }> = []
     const errors: string[] = []
     for (const s of settled) {
       if (s.status === 'fulfilled') results.push(s.value)
       else errors.push(s.reason?.message ?? 'Unknown error')
+    }
+
+    let audit: { isValid: boolean; confidence: number; reason: string } | null = null
+    const auditTarget = results[0]?.sourceUri
+    if (auditTarget) {
+      audit = await FabricConsistencyGuardService.verifyImageFidelity(auditTarget, fabric)
+      if (!audit.isValid) {
+        logger.warn('Fabric consistency audit flagged potential mismatch', { fabricId, reason: audit.reason, confidence: audit.confidence })
+      }
     }
 
     await db.insert(fabricActivityLog).values({
@@ -191,7 +200,7 @@ export class ImageGenerationService {
       actorId: null,
       eventType: 'IMAGE_BATCH_GENERATED',
       message: `Batch image generation completed: ${results.length}/${tasks.length} images using rule: ${promptMeta.ruleName}`,
-      payload: { count: results.length, total: tasks.length, errors, ruleId: promptMeta.ruleId, ruleName: promptMeta.ruleName },
+      payload: { count: results.length, total: tasks.length, errors, ruleId: promptMeta.ruleId, ruleName: promptMeta.ruleName, audit },
       updatedAt: new Date()
     })
 
@@ -299,11 +308,20 @@ export class ImageGenerationService {
       )
     )
 
-    const results: Array<{ mediaId: number; storageUrl: string }> = []
+    const results: Array<{ mediaId: number; storageUrl: string; sourceUri: string }> = []
     const errors: string[] = []
     for (const s of settled) {
       if (s.status === 'fulfilled') results.push(s.value)
       else errors.push(s.reason?.message ?? 'Unknown error')
+    }
+
+    let audit: { isValid: boolean; confidence: number; reason: string } | null = null
+    const auditTarget = results[0]?.sourceUri
+    if (auditTarget) {
+      audit = await FabricConsistencyGuardService.verifyImageFidelity(auditTarget, fabric)
+      if (!audit.isValid) {
+        logger.warn('Fabric consistency audit flagged potential mismatch', { fabricId, reason: audit.reason, confidence: audit.confidence })
+      }
     }
 
     await db.insert(fabricActivityLog).values({
@@ -311,7 +329,7 @@ export class ImageGenerationService {
       actorId: null,
       eventType: 'IMAGE_BATCH_GENERATED',
       message: `Image generation by type completed: ${results.length}/${safeCount} "${config.label}" images`,
-      payload: { promptType: config.type, promptLabel: config.label, count: safeCount, results: results.length, total: safeCount, errors },
+      payload: { promptType: config.type, promptLabel: config.label, count: safeCount, results: results.length, total: safeCount, errors, audit },
       updatedAt: new Date()
     })
 
@@ -353,7 +371,7 @@ export class ImageGenerationService {
       batchIndex: number
       inputImages?: string[]
     }
-  ): Promise<{ mediaId: number; storageUrl: string }> {
+  ): Promise<{ mediaId: number; storageUrl: string; sourceUri: string }> {
     const db = getDb()
 
     const [inserted] = await db
@@ -382,12 +400,6 @@ export class ImageGenerationService {
     try {
       const urls = await generateGeminiImage(prompt, { inputImages: meta.inputImages, context: { source: 'image', fabricId } })
       const sourceUri = urls[0] ?? ''
-
-      // Vision AI Quality Gate audit
-      const audit = await FabricConsistencyGuardService.verifyImageFidelity(sourceUri, { ...fabric, id: fabricId })
-      if (!audit.isValid) {
-        logger.warn('Fabric consistency audit flagged potential mismatch', { fabricId, mediaId, reason: audit.reason, confidence: audit.confidence })
-      }
 
       await db
         .update(generatedMedia)
@@ -422,7 +434,7 @@ export class ImageGenerationService {
         }
       }
 
-      return { mediaId, storageUrl }
+      return { mediaId, storageUrl, sourceUri }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       await db
@@ -536,6 +548,13 @@ export class ImageGenerationService {
       batchIndex: 0,
       inputImages
     })
+
+    if (result.sourceUri) {
+      const audit = await FabricConsistencyGuardService.verifyImageFidelity(result.sourceUri, fabric)
+      if (!audit.isValid) {
+        logger.warn('Fabric consistency audit flagged potential mismatch', { fabricId, reason: audit.reason, confidence: audit.confidence })
+      }
+    }
 
     if (result.storageUrl) {
       const existingImages = fabric.images ?? []

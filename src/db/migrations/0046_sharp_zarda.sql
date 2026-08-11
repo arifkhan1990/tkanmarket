@@ -1,0 +1,1 @@
+ALTER TABLE "admin_settings" ADD COLUMN "hero_section_json" jsonb DEFAULT '{}'::jsonb NOT NULL;

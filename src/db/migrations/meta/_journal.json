@@ -309,6 +309,20 @@
       "when": 1785907698840,
       "tag": "0044_magical_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1786342659959,
+      "tag": "0045_repair_admin_totp_recovery_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1786462927285,
+      "tag": "0046_sharp_zarda",
+      "breakpoints": true
     }
   ]
 }

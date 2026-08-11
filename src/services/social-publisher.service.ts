@@ -13,6 +13,8 @@ import { SocialCredentialsService } from '@/services/social-credentials.service'
 import { consumePublishSlot, releasePublishSlot } from '@/lib/social/rate-limiter'
 import { PlatformPublishError, getPublisher } from '@/lib/social/platforms'
 import { resolveR2Url } from '@/lib/storage/r2'
+import { getPublicSiteUrl } from '@/lib/utils/seo'
+import { DEFAULT_LOCALE } from '@/types/i18n.types'
 
 /**
  * Extracts the provider's own error detail from a PlatformPublishError. Most
@@ -63,7 +65,8 @@ export class SocialPublisherService {
         revisionNumber: socialPosts.revisionNumber,
         publishCredentialId: socialPosts.publishCredentialId,
         reviewState: socialPosts.reviewState,
-        fabricImages: fabrics.images
+        fabricImages: fabrics.images,
+        fabricSlug: fabrics.slug
       })
       .from(socialPosts)
       .innerJoin(fabrics, eq(socialPosts.fabricId, fabrics.id))
@@ -100,7 +103,13 @@ export class SocialPublisherService {
       })
       throw new ValidationError(msg)
     }
-    const caption = post.captionText
+    // Fabric detail page link is always appended so every published post
+    // points back to the fabric on the site, regardless of how the content was
+    // generated. Built fresh at publish time (never written back to the draft).
+    const fabricUrl = post.fabricSlug
+      ? `${getPublicSiteUrl()}/${DEFAULT_LOCALE}/fabrics/${post.fabricSlug}`
+      : null
+    const caption = fabricUrl ? `${post.captionText.trim()}\n\nView this fabric: ${fabricUrl}` : post.captionText
     const hashtags = post.hashtags ?? []
 
     const platform = post.platform
@@ -217,7 +226,8 @@ export class SocialPublisherService {
         hashtags,
         scriptText: post.scriptText,
         mediaUrls: resolvedMedia,
-        contentType: post.contentType
+        contentType: post.contentType,
+        link: fabricUrl
       })
 
       const now = new Date()

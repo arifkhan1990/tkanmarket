@@ -142,6 +142,7 @@ export class PinterestPublisher extends BasePlatformPublisher {
         board_id: boardId,
         title,
         description,
+        link: post.link ?? undefined,
         media_source: { source_type: 'image_url', url: mediaUrl }
       })
     }, { platform: this.platform })
