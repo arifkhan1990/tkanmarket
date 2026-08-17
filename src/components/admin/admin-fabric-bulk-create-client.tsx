@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 import { ArrowLeft, Download, Upload } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -271,6 +272,7 @@ export function AdminFabricBulkCreateClient() {
   const [fileBuffer, setFileBuffer] = React.useState<ArrayBuffer | null>(null)
   const [workbook, setWorkbook] = React.useState<XLSX.WorkBook | null>(null)
   const [sheetInfos, setSheetInfos] = React.useState<SheetInfo[]>([])
+  const [selectedSheetNames, setSelectedSheetNames] = React.useState<string[]>([])
   const [parsedRows, setParsedRows] = React.useState<BulkFabricRowInput[]>([])
   const [skippedCount, setSkippedCount] = React.useState(0)
   const [detectedHeaders, setDetectedHeaders] = React.useState<string[]>([])
@@ -281,10 +283,38 @@ export function AdminFabricBulkCreateClient() {
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   const parseAndPreview = React.useCallback(
-    (wb: XLSX.WorkBook, sheetName: string) => {
-      const result = parseSheet(wb, sheetName)
-      if ('error' in result) {
-        if (result.error === 'missing_title_ru') {
+    (wb: XLSX.WorkBook, sheetNames: string[]) => {
+      if (sheetNames.length === 0) {
+        toast.error(t.bulkCreateSelectSheet)
+        return
+      }
+
+      const combinedRows: BulkFabricRowInput[] = []
+      const headerSet = new Set<string>()
+      let totalSkipped = 0
+      let missingTitleCount = 0
+
+      for (const sName of sheetNames) {
+        const result = parseSheet(wb, sName)
+        if ('error' in result) {
+          if (result.error === 'missing_title_ru') {
+            missingTitleCount++
+          }
+          continue
+        }
+
+        const sheet = wb.Sheets[sName]
+        if (sheet) {
+          const allRaw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+          totalSkipped += allRaw.length - result.rows.length
+        }
+
+        result.headers.forEach((h) => headerSet.add(h))
+        combinedRows.push(...result.rows)
+      }
+
+      if (combinedRows.length === 0) {
+        if (missingTitleCount > 0) {
           toast.error(t.bulkCreateMissingColumn)
         } else {
           toast.error(t.bulkCreateInvalidFile)
@@ -292,17 +322,17 @@ export function AdminFabricBulkCreateClient() {
         return
       }
 
-      const sheet = wb.Sheets[sheetName]
-      const allRaw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet!, { defval: '' })
-      const skipped = allRaw.length - result.rows.length
+      if (missingTitleCount > 0) {
+        toast.warning(`${missingTitleCount} sheet(s) skipped due to missing "title_ru" column.`)
+      }
 
-      setDetectedHeaders(result.headers)
-      setParsedRows(result.rows)
-      setSkippedCount(skipped)
+      setDetectedHeaders(Array.from(headerSet))
+      setParsedRows(combinedRows)
+      setSkippedCount(totalSkipped)
       setPhase('preview')
 
-      if (skipped > 0) {
-        toast.warning(fillMessage(t.bulkCreateValidationErrors, { count: String(skipped) }))
+      if (totalSkipped > 0) {
+        toast.warning(fillMessage(t.bulkCreateValidationErrors, { count: String(totalSkipped) }))
       }
     },
     [t]
@@ -320,8 +350,11 @@ export function AdminFabricBulkCreateClient() {
       setFileBuffer(buffer)
       setWorkbook(info.workbook)
       setSheetInfos(info.sheets)
+      const allNames = info.sheets.map((s) => s.name)
+      setSelectedSheetNames(allNames)
+
       if (info.sheets.length === 1) {
-        parseAndPreview(info.workbook, info.sheets[0]!.name)
+        parseAndPreview(info.workbook, allNames)
       } else {
         setPhase('sheet')
       }
@@ -329,14 +362,25 @@ export function AdminFabricBulkCreateClient() {
     [t, parseAndPreview]
   )
 
-  const handleSelectSheet = React.useCallback(
-    (sheetName: string) => {
-      if (workbook) {
-        parseAndPreview(workbook, sheetName)
-      }
-    },
-    [workbook, parseAndPreview]
-  )
+  const handleToggleSheet = React.useCallback((sheetName: string) => {
+    setSelectedSheetNames((prev) =>
+      prev.includes(sheetName) ? prev.filter((name) => name !== sheetName) : [...prev, sheetName]
+    )
+  }, [])
+
+  const handleSelectAllSheets = React.useCallback(() => {
+    setSelectedSheetNames(sheetInfos.map((s) => s.name))
+  }, [sheetInfos])
+
+  const handleDeselectAllSheets = React.useCallback(() => {
+    setSelectedSheetNames([])
+  }, [])
+
+  const handleConfirmSheetSelection = React.useCallback(() => {
+    if (workbook && selectedSheetNames.length > 0) {
+      parseAndPreview(workbook, selectedSheetNames)
+    }
+  }, [workbook, selectedSheetNames, parseAndPreview])
 
   const handleFileSelect = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,6 +462,7 @@ export function AdminFabricBulkCreateClient() {
     setFileBuffer(null)
     setWorkbook(null)
     setSheetInfos([])
+    setSelectedSheetNames([])
     setParsedRows([])
     setSkippedCount(0)
     setDetectedHeaders([])
@@ -498,28 +543,91 @@ export function AdminFabricBulkCreateClient() {
         {/* Sheet picker phase */}
         {phase === 'sheet' ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-on-surface">{t.bulkCreateSelectSheet}</h3>
+                <h3 className="text-base font-bold text-on-surface">{t.bulkCreateSelectSheet}</h3>
                 <p className="text-xs text-on-surface-variant">{fileName}</p>
               </div>
               <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={handleReset}>
                 {t.bulkCreateChangeFile}
               </Button>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {sheetInfos.map((s) => (
-                <button
-                  key={s.name}
-                  onClick={() => handleSelectSheet(s.name)}
-                  className="flex items-center justify-between rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+
+            {/* Selection control toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container-low p-3.5">
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg text-xs"
+                  onClick={
+                    selectedSheetNames.length === sheetInfos.length
+                      ? handleDeselectAllSheets
+                      : handleSelectAllSheets
+                  }
                 >
-                  <span className="text-sm font-medium text-on-surface">{s.name}</span>
-                  <span className="text-xs text-on-surface-variant">
-                    {fillMessage(t.bulkCreateSheetRowCount, { count: String(s.rowCount) })}
-                  </span>
-                </button>
-              ))}
+                  {selectedSheetNames.length === sheetInfos.length
+                    ? (t.bulkCreateDeselectAll ?? 'Deselect all')
+                    : (t.bulkCreateSelectAll ?? 'Select all')}
+                </Button>
+                <span className="text-xs font-medium text-on-surface">
+                  {fillMessage(
+                    t.bulkCreateSheetsSelected ??
+                      '{selectedCount} of {totalCount} sheets selected ({rowCount} total rows)',
+                    {
+                      selectedCount: String(selectedSheetNames.length),
+                      totalCount: String(sheetInfos.length),
+                      rowCount: String(
+                        sheetInfos
+                          .filter((s) => selectedSheetNames.includes(s.name))
+                          .reduce((sum, s) => sum + s.rowCount, 0)
+                      )
+                    }
+                  )}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                disabled={selectedSheetNames.length === 0}
+                size="sm"
+                className="rounded-xl font-semibold"
+                onClick={handleConfirmSheetSelection}
+              >
+                {fillMessage(t.bulkCreateContinueWithSheets ?? 'Preview selected sheet(s) ({count})', {
+                  count: String(selectedSheetNames.length)
+                })}
+              </Button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {sheetInfos.map((s) => {
+                const isSelected = selectedSheetNames.includes(s.name)
+                return (
+                  <div
+                    key={s.name}
+                    onClick={() => handleToggleSheet(s.name)}
+                    className={`flex cursor-pointer items-center justify-between rounded-xl border p-4 transition-colors ${
+                      isSelected
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-outline-variant/30 bg-surface-container-lowest hover:border-outline-variant/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleSheet(s.name)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <span className="text-sm font-medium text-on-surface">{s.name}</span>
+                    </div>
+                    <span className="text-xs font-medium text-on-surface-variant">
+                      {fillMessage(t.bulkCreateSheetRowCount, { count: String(s.rowCount) })}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         ) : null}
@@ -547,14 +655,19 @@ export function AdminFabricBulkCreateClient() {
                 ) : null}
               </div>
               <div className="flex gap-2">
+                {sheetInfos.length > 1 ? (
+                  <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setPhase('sheet')}>
+                    {t.bulkCreateChangeSheetSelection ?? 'Change sheet selection'}
+                  </Button>
+                ) : null}
                 <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={handleReset}>
                   {t.bulkCreateChangeFile}
                 </Button>
               </div>
             </div>
 
-            <p className="text-xs text-on-surface-variant">
-              {fileName}
+            <p className="text-xs font-medium text-on-surface-variant">
+              {fileName} {selectedSheetNames.length > 0 ? `— (${selectedSheetNames.join(', ')})` : ''}
             </p>
 
             <ScrollArea className="max-h-[50vh] rounded-xl border border-outline-variant/20">

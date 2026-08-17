@@ -245,18 +245,6 @@ export function FabricEditForm({ fabric }: { fabric: AdminFabricDetail }) {
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge intent="default">{fabric.status}</Badge>
-          <Button asChild variant="outline" size="sm">
-            <Link href={withLocaleUrl(`/admin/wholesale-pricing-simulator?fabricId=${fabric.id}`, locale)}>
-              <CircleDollarSign className="h-4 w-4" aria-hidden />
-              {messages.admin.fabricEdit.wholesaleSimulator}
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={withLocaleUrl(`/admin/wholesale-pricing/tiers?fabricId=${fabric.id}`, locale)}>
-              <Layers className="h-4 w-4" aria-hidden />
-              {messages.admin.fabricEdit.wholesaleTiers}
-            </Link>
-          </Button>
           <SocialVideoGenerationDialog
             fabricId={fabric.id}
             fabricTitle={fabric.title_ru}
@@ -269,9 +257,10 @@ export function FabricEditForm({ fabric }: { fabric: AdminFabricDetail }) {
             </Link>
           </Button>
           {fabric.status === 'approved' ? (
-            <Button asChild variant="outline">
+            <Button asChild variant="outline" size="sm">
               <Link href={`/fabrics/${encodeURIComponent(fabric.slug)}`} target="_blank">
-                {messages.admin.fabricEdit.viewMarketplace} <ExternalLink className="h-4 w-4" aria-hidden />
+                <ExternalLink className="h-4 w-4" aria-hidden />
+                {messages.admin.fabricEdit.viewMarketplace}
               </Link>
             </Button>
           ) : null}
