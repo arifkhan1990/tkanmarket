@@ -79,7 +79,7 @@ export function FabricCard({
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                   muted
                   playsInline
-                  preload="metadata"
+                  preload="none"
                   aria-hidden
                 />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/30">

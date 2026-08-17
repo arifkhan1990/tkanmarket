@@ -20,16 +20,19 @@ function ShowcaseSkeleton() {
           'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]'
         )}
       >
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:h-[480px] lg:h-[520px]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:h-[428px] lg:h-[480px] xl:h-[520px]">
           <div className="h-[min(74vw,392px)] animate-pulse rounded-2xl bg-surface-container/60 sm:h-[404px] md:col-span-8 md:h-auto" />
           <div className="grid grid-cols-2 gap-3 md:col-span-4 md:flex md:flex-col">
             <div className="aspect-[4/3] animate-pulse rounded-2xl bg-surface-container/50 md:aspect-auto md:flex-1" />
             <div className="aspect-[4/3] animate-pulse rounded-2xl bg-surface-container/40 md:aspect-auto md:flex-1" />
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-surface-container/35" />
+            <div
+              key={i}
+              className={cn('aspect-[3/4] animate-pulse rounded-2xl bg-surface-container/35', i >= 2 && 'max-sm:hidden', i >= 3 && 'max-lg:hidden')}
+            />
           ))}
         </div>
       </div>

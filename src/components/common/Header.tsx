@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Globe, Mail, Menu, MessageCircle, Phone, Sparkles } from 'lucide-react'
 
@@ -26,7 +26,6 @@ const localeLabels: Record<Locale, string> = {
 
 export function Header() {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
   const [scrolled, setScrolled] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -61,7 +60,7 @@ export function Header() {
   const handleChangeLocale = (nextLocale: Locale) => {
     setLocaleCookieClient(nextLocale)
     const basePath = stripLocaleFromPathname(pathname)
-    const qs = searchParams.toString()
+    const qs = typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : ''
     const nextUrl = qs.length > 0 ? `${basePath}?${qs}` : basePath
     router.push(withLocaleUrl(nextUrl, nextLocale))
   }
@@ -154,7 +153,6 @@ export function Header() {
           <Link
             href={withLocaleUrl('/', locale)}
             className="group flex min-w-0 shrink-0 items-center gap-2 sm:gap-2.5"
-            aria-label={messages.common.brand}
           >
             <div
               className={cn(

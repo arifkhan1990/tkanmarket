@@ -16,8 +16,7 @@ import { CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 
 import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
-
-const Countries = ['Russia', 'Kazakhstan', 'Belarus', 'Kyrgyzstan', 'Armenia', 'Azerbaijan', 'Uzbekistan', 'Tajikistan', 'Turkmenistan', 'Moldova', 'Georgia'] as const
+import { ALL_COUNTRIES } from '@/constants'
 
 export function HomeLeadForm() {
   const router = useRouter()
@@ -41,7 +40,7 @@ export function HomeLeadForm() {
       contact_name: z.string().trim().min(1, messages.leads.home.nameRequired),
       email: z.string().trim().email(messages.leads.home.emailInvalid),
       phone: z.string().trim().optional(),
-      country: z.enum(Countries),
+      country: z.enum(ALL_COUNTRIES),
       message: z.string().trim().min(1, messages.leads.home.messageRequired),
     })
   }, [messages])

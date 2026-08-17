@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { CIS_COUNTRIES } from '@/constants'
+import { ALL_COUNTRIES } from '@/constants'
+import { SearchableCountrySelect } from '@/components/ui/searchable-country-select'
 import { useFabric } from '@/hooks/useFabricQuery'
 import { useI18n } from '@/hooks/useI18n'
 import { useSampleRequestLeadMutation } from '@/hooks/use-sample-request-lead-mutation'
@@ -233,21 +234,10 @@ export function SampleRequestPageClient() {
                       <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
                         {m.labels.country}
                       </label>
-                      <Select
+                      <SearchableCountrySelect
                         value={watched?.country ?? 'Russia'}
                         onValueChange={(v) => form.setValue('country', v as SampleRequestFormValues['country'])}
-                      >
-                        <SelectTrigger className="rounded-xl bg-surface-container-highest">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(CIS_COUNTRIES as readonly string[]).map((c) => (
-                            <SelectItem key={c} value={c}>
-                              {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                       {form.formState.errors.country ? (
                         <p className="text-xs text-destructive">{form.formState.errors.country.message}</p>
                       ) : null}

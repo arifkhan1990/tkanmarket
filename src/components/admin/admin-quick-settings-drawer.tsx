@@ -8,6 +8,7 @@ import { useAdminLayout } from '@/components/admin/admin-layout-context'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet'
 import { useI18n } from '@/hooks/useI18n'
+import { isAdminNavHrefEnabled } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 export function AdminQuickSettingsDrawer() {
@@ -80,15 +81,17 @@ export function AdminQuickSettingsDrawer() {
                   {messages.admin.sidebar.systemPreferences}
                 </Link>
               </SheetClose>
-              <SheetClose asChild>
-                <Link
-                  href="/admin/help-support"
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                >
-                  <CircleHelp className="h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden />
-                  {messages.admin.helpSupportPage.title}
-                </Link>
-              </SheetClose>
+              {isAdminNavHrefEnabled('/admin/help-support') && (
+                <SheetClose asChild>
+                  <Link
+                    href="/admin/help-support"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-high/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <CircleHelp className="h-4 w-4 shrink-0 text-on-surface-variant" aria-hidden />
+                    {messages.admin.helpSupportPage.title}
+                  </Link>
+                </SheetClose>
+              )}
             </nav>
           </section>
         </div>

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Suspense } from 'react'
 
 import { Header } from '@/components/common/Header'
 import { Footer } from '@/components/common/Footer'
@@ -16,17 +15,11 @@ function TopBanner() {
   )
 }
 
-function HeaderSkeleton() {
-  return <div className="h-[60px] border-b border-outline/10 bg-surface" aria-hidden />
-}
-
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <TopBanner />
-      <Suspense fallback={<HeaderSkeleton />}>
-        <Header />
-      </Suspense>
+      <Header />
       <main className="flex-1">{children}</main>
       <Footer />
     </div>

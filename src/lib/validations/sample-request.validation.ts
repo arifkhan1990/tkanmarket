@@ -1,13 +1,13 @@
 import { z } from 'zod'
 
-import { CIS_COUNTRIES } from '@/constants'
+import { ALL_COUNTRIES } from '@/constants'
 
 export const SampleRequestFormSchema = z.object({
   contact_name: z.string().trim().min(1),
   email: z.string().trim().email(),
   company_name: z.string().trim().min(1),
   tax_id: z.string().trim().optional(),
-  country: z.enum(CIS_COUNTRIES),
+  country: z.enum(ALL_COUNTRIES),
   city: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   shipping_notes: z.string().trim().optional()

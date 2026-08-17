@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { CIS_COUNTRIES } from '@/constants'
+import { ALL_COUNTRIES } from '@/constants'
+import { SearchableCountrySelect } from '@/components/ui/searchable-country-select'
 import { useCategoryCounts } from '@/hooks/useCategoryCounts'
 import { usePublicBulkInquiryMetrics } from '@/hooks/usePublicBulkInquiryMetrics'
 import type { ApiEnvelope } from '@/types/api-envelope.types'
@@ -29,7 +30,7 @@ const StepSchema = z.object({
   contact_name: z.string().trim().min(1),
   email: z.string().trim().email(),
   phone: z.string().trim().min(1).optional(),
-  country: z.enum(CIS_COUNTRIES),
+  country: z.enum(ALL_COUNTRIES),
   city: z.string().trim().min(1).optional(),
 
   product_category: z.string().trim().min(1),
@@ -226,18 +227,10 @@ export function BulkInquiryPortalClient() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-on-surface ml-1">Country</label>
-                    <Select value={form.watch('country')} onValueChange={(v) => form.setValue('country', v as BulkInquiryPortalValues['country'])}>
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder="Select country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(CIS_COUNTRIES as readonly string[]).map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableCountrySelect
+                      value={form.watch('country')}
+                      onValueChange={(v) => form.setValue('country', v as BulkInquiryPortalValues['country'])}
+                    />
                   </div>
                 </div>
                 <div className="pt-4 flex items-center justify-end gap-3">

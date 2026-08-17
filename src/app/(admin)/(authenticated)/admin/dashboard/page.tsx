@@ -13,6 +13,7 @@ import { TopFabricCategoriesChart } from '@/components/admin/charts/TopFabricCat
 import { unstable_noStore as noStore } from 'next/cache'
 import { getServerLocale } from '@/lib/i18n/get-locale'
 import { getMessages } from '@/lib/i18n/get-messages'
+import { isAdminNavHrefEnabled } from '@/lib/features'
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
@@ -171,7 +172,7 @@ export default async function AdminDashboardPage() {
             title: dash.quickLinkSuppliers,
             description: dash.quickLinkSuppliersDesc
           }
-        ]}
+        ].filter((link) => isAdminNavHrefEnabled(link.href))}
       />
 
       <div className="space-y-6">

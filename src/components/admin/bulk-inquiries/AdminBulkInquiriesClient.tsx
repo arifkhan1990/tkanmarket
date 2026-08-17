@@ -12,14 +12,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCategoryCounts } from '@/hooks/useCategoryCounts'
-import { CIS_COUNTRIES } from '@/constants'
+import { ALL_COUNTRIES } from '@/constants'
+import { SearchableCountrySelect } from '@/components/ui/searchable-country-select'
 import type { ApiEnvelope } from '@/types/api-envelope.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const BulkAdminSchema = z.object({
   company_name: z.string().trim().min(1),
   email: z.string().trim().email(),
-  country: z.enum(CIS_COUNTRIES),
+  country: z.enum(ALL_COUNTRIES),
   primary_interest: z.string().trim().min(1),
   required_quantity: z.coerce.number().int().positive(),
   target_price: z.coerce.number().positive().optional(),
@@ -159,18 +160,10 @@ export function AdminBulkInquiriesClient() {
 
                 <div className="flex flex-col gap-2 md:col-span-2">
                   <label className="text-sm font-bold text-on-surface-variant px-1">Country</label>
-                  <Select value={form.watch('country')} onValueChange={(v) => form.setValue('country', v as BulkAdminValues['country'])}>
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(CIS_COUNTRIES as readonly string[]).map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableCountrySelect
+                    value={form.watch('country')}
+                    onValueChange={(v) => form.setValue('country', v as BulkAdminValues['country'])}
+                  />
                 </div>
               </div>
             </section>

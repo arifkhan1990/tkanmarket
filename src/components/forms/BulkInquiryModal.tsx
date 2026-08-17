@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { CIS_COUNTRIES } from '@/constants'
+import { ALL_COUNTRIES } from '@/constants'
+import { SearchableCountrySelect } from '@/components/ui/searchable-country-select'
 import type { ApiEnvelope } from '@/types/api-envelope.types'
 import { CreateLeadSchema } from '@/lib/validations/lead.validation'
 import { useI18n } from '@/hooks/useI18n'
@@ -24,7 +25,7 @@ const BaseSchema = CreateLeadSchema.omit({
   utm_source: true,
   utm_campaign: true
 }).extend({
-  country: z.enum(CIS_COUNTRIES)
+  country: z.enum(ALL_COUNTRIES)
 })
 
 const BulkSchema = BaseSchema.extend({
@@ -156,17 +157,11 @@ export function BulkInquiryModal(props: {
 
             <div className="space-y-2">
               <div className="text-xs font-bold uppercase tracking-widest text-outline">{messages.leads.bulk.country}</div>
-              <select
-                {...form.register('country')}
-                aria-label={messages.leads.bulk.country}
-                className="w-full rounded-xl bg-surface-container-highest border border-outline/10 px-4 py-3 text-sm font-bold text-on-surface"
-              >
-                {(CIS_COUNTRIES as readonly string[]).map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <SearchableCountrySelect
+                value={form.watch('country')}
+                onValueChange={(val) => form.setValue('country', val as BulkValues['country'])}
+                ariaLabel={messages.leads.bulk.country}
+              />
             </div>
             <div className="space-y-2">
               <div className="text-xs font-bold uppercase tracking-widest text-outline">{messages.leads.bulk.city}</div>

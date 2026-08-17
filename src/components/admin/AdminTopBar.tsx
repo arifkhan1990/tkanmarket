@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { useI18n } from '@/hooks/useI18n'
+import { isAdminNavHrefEnabled } from '@/lib/features'
 import { cn } from '@/lib/utils'
 import type { AdminTopBarProps } from '@/types/nav.types'
 
@@ -234,9 +235,11 @@ export function AdminTopBar({ pageTitle }: AdminTopBarProps) {
             <DropdownMenuItem asChild>
               <Link href="/admin/settings">{messages.admin.topbar.settings}</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/admin/help-support">{messages.admin.helpSupportPage.title}</Link>
-            </DropdownMenuItem>
+            {isAdminNavHrefEnabled('/admin/help-support') && (
+              <DropdownMenuItem asChild>
+                <Link href="/admin/help-support">{messages.admin.helpSupportPage.title}</Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={(e) => {

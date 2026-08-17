@@ -35,7 +35,7 @@ export async function Footer() {
         <div className="grid gap-12 lg:grid-cols-12">
           {/* Brand column */}
           <div className="space-y-5 lg:col-span-4">
-            <Link href={withLocaleUrl('/', locale)} className="inline-flex items-center gap-3" aria-label={m.common.brand}>
+            <Link href={withLocaleUrl('/', locale)} className="inline-flex items-center gap-3">
               <div
                 className="primary-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-lg font-black text-on-primary shadow-[0_10px_28px_-8px_rgba(26,64,194,0.55)] ring-1 ring-white/25"
                 aria-hidden

@@ -6,7 +6,7 @@ import { getServerLocale } from '@/lib/i18n/get-locale'
 import { getMessages } from '@/lib/i18n/get-messages'
 
 interface AdminLeadsPageProps {
-  searchParams?: { [key: string]: string | string[] | undefined }
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,7 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function AdminLeadsPage({ searchParams }: AdminLeadsPageProps) {
   await requireAdminOrRedirect()
 
-  const assignedParam = searchParams?.assigned
+  const params = await searchParams
+  const assignedParam = params.assigned
   const initialAssignedMode = Array.isArray(assignedParam) ? assignedParam[0] : assignedParam
 
   return <LeadCrmClient initialAssignedMode={initialAssignedMode === 'me' ? 'me' : 'all'} />

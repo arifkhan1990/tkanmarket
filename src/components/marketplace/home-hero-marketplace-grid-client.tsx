@@ -59,7 +59,7 @@ function HeroFeaturedEmptyState() {
         <p className="mt-3 max-w-md text-sm font-medium leading-relaxed text-white/65">{m.hero.heroEmptyFeaturedBody}</p>
         <Button
           asChild
-          className="mt-7 h-11 rounded-xl bg-[#b8894a] px-7 text-sm font-extrabold text-white shadow-[0_12px_32px_-8px_rgba(184,137,74,0.55)] transition-colors hover:bg-[#d4a855]"
+          className="mt-7 h-11 rounded-xl bg-[#94611f] px-7 text-sm font-extrabold text-white shadow-[0_12px_32px_-8px_rgba(184,137,74,0.55)] transition-colors hover:bg-[#d4a855]"
         >
           <Link href={withLocaleUrl('/fabrics', locale)}>{m.hero.heroEmptyFeaturedCta}</Link>
         </Button>
@@ -71,6 +71,7 @@ function HeroFeaturedEmptyState() {
 export function HomeHeroMarketplaceGridClient(props: { items: FabricSummary[] }) {
   const { locale, messages: m } = useI18n()
   const [isVideoPreviewActive, setIsVideoPreviewActive] = useState(false)
+  const [isVideoMounted, setIsVideoMounted] = useState(false)
   const { items } = props
   const embedId = HOME_HERO_YOUTUBE_EMBED_ID
   const hasEmbed = typeof embedId === 'string' && embedId.length > 0
@@ -111,13 +112,16 @@ export function HomeHeroMarketplaceGridClient(props: { items: FabricSummary[] })
                   ? 'border-emerald-500/25 ring-emerald-500/30'
                   : 'ring-black/[0.03]'
               )}
-              onMouseEnter={() => setIsVideoPreviewActive(true)}
+              onMouseEnter={() => {
+                setIsVideoPreviewActive(true)
+                setIsVideoMounted(true)
+              }}
               onMouseLeave={() => setIsVideoPreviewActive(false)}
             >
               {/* Clip media to radius on its own layer (scale + iframe won’t square the corners) */}
               <div className="relative isolate min-h-[200px] flex-1 overflow-hidden rounded-2xl xl:min-h-[208px]">
                 <div className="absolute inset-0 overflow-hidden rounded-2xl [transform:translateZ(0)]">
-                  {hasEmbed ? (
+                  {hasEmbed && isVideoMounted ? (
                     <>
                       <iframe
                         title={m.hero.bentoVideoDialogTitle}
@@ -127,6 +131,7 @@ export function HomeHeroMarketplaceGridClient(props: { items: FabricSummary[] })
                           isVideoPreviewActive ? 'opacity-100' : 'opacity-0'
                         )}
                         src={`https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&loop=1&playlist=${embedId}`}
+                        loading="lazy"
                         allow="autoplay; encrypted-media; picture-in-picture"
                       />
                       <div

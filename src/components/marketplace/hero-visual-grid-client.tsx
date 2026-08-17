@@ -51,6 +51,7 @@ function getPlaceholderMeta(index: number) {
 function VideoCard({ embedId }: { embedId: string | null }) {
   const { messages: m } = useI18n()
   const [active, setActive] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const hasEmbed = typeof embedId === 'string' && embedId.length > 0
 
   return (
@@ -61,11 +62,14 @@ function VideoCard({ embedId }: { embedId: string | null }) {
         active ? 'ring-emerald-500/30' : 'ring-black/[0.03]',
         'hover:shadow-[0_32px_72px_-24px_rgba(0,0,0,0.55)]'
       )}
-      onMouseEnter={() => setActive(true)}
+      onMouseEnter={() => {
+        setActive(true)
+        setMounted(true)
+      }}
       onMouseLeave={() => setActive(false)}
     >
       <div className="relative h-full overflow-hidden">
-        {hasEmbed ? (
+        {hasEmbed && mounted ? (
           <>
             <iframe
               title={m.hero.bentoVideoDialogTitle}
@@ -75,6 +79,7 @@ function VideoCard({ embedId }: { embedId: string | null }) {
                 active ? 'opacity-100' : 'opacity-0'
               )}
               src={`https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1&mute=1&controls=0&rel=0&playsinline=1&loop=1&playlist=${embedId}`}
+              loading="lazy"
               allow="autoplay; encrypted-media; picture-in-picture"
             />
             <div
@@ -177,6 +182,7 @@ function FabricCard({
         alt={imgAlt}
         fill
         priority={priority}
+        fetchPriority={priority ? 'high' : 'auto'}
         loading={priority ? 'eager' : 'lazy'}
         className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/card:scale-[1.05]"
         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
@@ -316,6 +322,7 @@ export function HeroVisualGridClient({
                   locale={locale}
                   messages={messages}
                   index={i + 1}
+                  priority={i === 0}
                   className="border border-outline/10 shadow-[0_12px_36px_-12px_rgba(0,0,0,0.3)]"
                 />
               </div>

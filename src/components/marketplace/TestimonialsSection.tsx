@@ -33,7 +33,7 @@ export async function TestimonialsSection() {
                 aria-hidden
               />
 
-              <div className="flex items-center gap-1 text-amber-500" aria-label="5 out of 5 stars">
+              <div className="flex items-center gap-1 text-amber-500" role="img" aria-label="5 out of 5 stars">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <Star key={i} className="h-4 w-4 fill-current" aria-hidden />
                 ))}

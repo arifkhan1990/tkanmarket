@@ -194,7 +194,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
                 key={`hero-bento-copy-${item.id}`}
                 className="pointer-events-none absolute inset-0 z-[2] transition-opacity duration-500 ease-in-out motion-reduce:duration-0"
                 style={{ opacity: i === safeIndex ? 1 : 0 }}
-                aria-hidden={i !== safeIndex}
+                inert={i !== safeIndex}
               >
                 <div className={cn('flex h-full max-w-[min(100%,36rem)] flex-col items-start justify-end p-4 pb-[3.5rem] sm:p-6 sm:pb-14 md:max-w-[min(100%,34rem)] md:p-8 md:pb-16', i === safeIndex && 'pointer-events-auto')}>
                   <div>
@@ -257,7 +257,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Link
                           href={itemHref}
-                          className="inline-flex h-10 items-center justify-center rounded-lg bg-[#b8894a] px-5 text-xs font-extrabold tracking-wide text-white shadow-[0_10px_28px_-8px_rgba(184,137,74,0.55)] transition-all hover:bg-[#d4a855] hover:shadow-[0_14px_36px_-8px_rgba(212,168,85,0.45)] sm:h-11 sm:px-6 sm:text-sm"
+                          className="inline-flex h-10 items-center justify-center rounded-lg bg-[#94611f] px-5 text-xs font-extrabold tracking-wide text-white shadow-[0_10px_28px_-8px_rgba(184,137,74,0.55)] transition-all hover:bg-[#d4a855] hover:shadow-[0_14px_36px_-8px_rgba(212,168,85,0.45)] sm:h-11 sm:px-6 sm:text-sm"
                         >
                           {messages.hero.slideCtaPrimary}
                         </Link>
@@ -426,7 +426,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
             <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
                 href={href}
-                className="inline-flex h-12 items-center justify-center rounded-md bg-[#b8894a] px-7 text-sm font-extrabold tracking-wide text-white transition-colors hover:bg-[#d4a855]"
+                className="inline-flex h-12 items-center justify-center rounded-md bg-[#94611f] px-7 text-sm font-extrabold tracking-wide text-white transition-colors hover:bg-[#d4a855]"
               >
                 {messages.hero.slideCtaPrimary}
               </Link>
