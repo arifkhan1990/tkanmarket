@@ -24,6 +24,8 @@ export const FabricQuerySchema = z.object({
   moq_min: z.coerce.number().int().min(0).optional(),
   moq_max: z.coerce.number().int().min(0).optional(),
   supplier_id: z.coerce.number().int().positive().optional(),
+  /** Filter by ready-stock location, derived from `supply_type` text. */
+  stock_location: z.enum(['china', 'moscow']).optional(),
   /** Filter by `fabric_categories.category_slug` (junction). */
   category_slug: z.string().trim().min(1).max(120).optional(),
   /** Catalog layout only; does not affect API/list query. */

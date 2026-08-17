@@ -108,8 +108,6 @@ export function generateFabricJsonLd(fabric: FabricDetail): object {
 
 export function generateFabricJsonLdForLocale(fabric: FabricDetail, locale: Locale): object {
   const baseUrl = getSiteUrl()
-  const url = `${baseUrl}/${locale}/fabrics/${fabric.slug}`
-  const price = fabric.priceUsd ? Number(fabric.priceUsd) : null
   const name = getLocalizedFabricTitle(fabric, locale)
   const description =
     locale === 'en'
@@ -121,20 +119,7 @@ export function generateFabricJsonLdForLocale(fabric: FabricDetail, locale: Loca
     name,
     description: description ?? '',
     image: fabric.images ?? [],
-    sku: fabric.sku ?? undefined,
-    brand: {
-      '@type': 'Brand',
-      name: fabric.supplier.name
-    },
-    offers: price
-      ? {
-          '@type': 'Offer',
-          url,
-          price,
-          priceCurrency: 'USD',
-          availability: 'https://schema.org/InStock'
-        }
-      : undefined
+    sku: fabric.sku ?? undefined
   }
 }
 

@@ -80,12 +80,6 @@ export async function Footer() {
                   <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" aria-hidden />
                 </Link>
               </li>
-              <li>
-                <Link className="group inline-flex items-center gap-1 text-on-surface-variant transition-colors hover:text-primary" href={withLocaleUrl('/suppliers', locale)}>
-                  {m.nav.suppliers}
-                  <ArrowUpRight className="h-3.5 w-3.5 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" aria-hidden />
-                </Link>
-              </li>
             </ul>
           </div>
 

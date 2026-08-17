@@ -10,7 +10,6 @@ import { HeroSection } from '@/components/marketplace/HeroSection'
 import { HowItWorksSection } from '@/components/marketplace/HowItWorksSection'
 import { NewsletterCtaSection } from '@/components/marketplace/NewsletterCtaSection'
 import { TestimonialsSection } from '@/components/marketplace/TestimonialsSection'
-import { TopSuppliersFallback, TopSuppliersSection } from '@/components/marketplace/TopSuppliersSection'
 import { TrustStatsSection } from '@/components/marketplace/TrustStatsSection'
 import { getServerLocale } from '@/lib/i18n/get-locale'
 import { getMessages } from '@/lib/i18n/get-messages'
@@ -62,10 +61,7 @@ export default async function HomePage() {
       <Suspense fallback={<FeaturedFabricsFallback />}>
         <FeaturedFabricsSection />
       </Suspense>
-      
-      <Suspense fallback={<TopSuppliersFallback />}>
-        <TopSuppliersSection />
-      </Suspense>
+
       <CertificationsSection />
       <TestimonialsSection />
       <FaqSection />

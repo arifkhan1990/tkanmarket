@@ -14,16 +14,6 @@ function barPctFromWidthCm(widthCm: number | null): number | null {
   return Math.min(100, Math.max(0, Math.round((widthCm / 200) * 100)))
 }
 
-function barPctFromMoq(moq: number | null): number | null {
-  if (moq == null) return null
-  return Math.min(100, Math.max(0, 100 - Math.round((moq / 5000) * 100)))
-}
-
-function barPctFromViews(views: number): number | null {
-  if (views <= 0) return null
-  return Math.min(100, Math.max(0, Math.round((views / 800) * 100)))
-}
-
 function MetricBar({
   label,
   valueText,
@@ -64,21 +54,16 @@ export function FabricDetailWebVStacks({
 }) {
   const gsmPct = barPctFromGsm(fabric.gsm)
   const widthPct = barPctFromWidthCm(fabric.widthCm)
-  const moqPct = barPctFromMoq(fabric.moq)
-  const viewsPct = barPctFromViews(fabric.viewsCount ?? 0)
 
   const gsmText = fabric.gsm != null ? String(fabric.gsm) : vm.notSpecified
   const widthText = fabric.widthCm != null ? `${fabric.widthCm} cm` : vm.notSpecified
-  const moqText = fabric.moq != null ? `${fabric.moq} m` : vm.notSpecified
-  const viewsText = String(fabric.viewsCount ?? 0)
-
-  const aiAt =
-    fabric.aiProcessedAt && fabric.aiProcessedAt.length > 0
-      ? new Date(fabric.aiProcessedAt).toLocaleString(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short'
-        })
-      : null
+  const colorText = fabric.color?.trim() ? fabric.color : vm.notSpecified
+  const supplyTypeText = fabric.supplyType?.trim() ? fabric.supplyType : vm.notSpecified
+  const shipmentTimeText = fabric.shipmentTime?.trim() ? fabric.shipmentTime : vm.notSpecified
+  const compositionText =
+    fabric.composition && fabric.composition.length > 0
+      ? fabric.composition.map((c) => `${c.material} ${c.percentage}%`).join(', ')
+      : vm.notSpecified
 
   return (
     <div className="flex w-full min-w-0 flex-col max-lg:gap-0 lg:space-y-10">
@@ -92,8 +77,14 @@ export function FabricDetailWebVStacks({
             <MetricBar label={vm.metricWidth} valueText={widthText} pct={widthPct} />
           </div>
           <div className="space-y-5">
-            <MetricBar label={vm.metricMoq} valueText={moqText} pct={moqPct} />
-            <MetricBar label={vm.metricCatalogViews} valueText={viewsText} pct={viewsPct} />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary">Color</span>
+              <span className="text-xs font-bold text-primary">{colorText}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-secondary">Supply Type</span>
+              <span className="text-xs font-bold text-primary">{supplyTypeText}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -105,26 +96,14 @@ export function FabricDetailWebVStacks({
 
       <div className="max-lg:border-y max-lg:border-outline-variant/10 max-lg:bg-surface max-lg:px-6 max-lg:py-8 lg:rounded-xl lg:border lg:border-outline-variant/10 lg:bg-surface-container-lowest lg:p-8 lg:shadow-sm">
         <h3 className="mb-6 font-heading text-sm font-bold uppercase tracking-widest text-primary">{vm.traceability}</h3>
-        <div className="flex flex-col gap-8">
-          {fabric.isFeatured ? (
-            <div className="flex items-start gap-4 rounded-xl border border-emerald-100 bg-emerald-50 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-              <div>
-                <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{vm.featuredTitle}</h4>
-                <p className="mt-1 text-xs leading-relaxed text-emerald-800/80 dark:text-emerald-200/90">{vm.featuredBody}</p>
-              </div>
-            </div>
-          ) : null}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-4">
-              <div className="mb-1 text-[10px] font-bold uppercase tracking-tighter text-secondary">{vm.aiConfidence}</div>
-              <div className="text-xl font-bold text-primary">
-                {fabric.aiConfidenceScore != null && fabric.aiConfidenceScore.length > 0 ? fabric.aiConfidenceScore : vm.notSpecified}
-              </div>
-            </div>
-            <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-4">
-              <div className="mb-1 text-[10px] font-bold uppercase tracking-tighter text-secondary">{vm.aiProcessedAt}</div>
-              <div className="text-sm font-bold text-on-surface">{aiAt ?? vm.notSpecified}</div>
-            </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-4">
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-tighter text-secondary">Composition</div>
+            <div className="text-sm font-bold text-on-surface">{compositionText}</div>
+          </div>
+          <div className="rounded-xl border border-outline-variant/5 bg-surface-container-low p-4">
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-tighter text-secondary">Shipment Time</div>
+            <div className="text-sm font-bold text-on-surface">{shipmentTimeText}</div>
           </div>
         </div>
       </div>

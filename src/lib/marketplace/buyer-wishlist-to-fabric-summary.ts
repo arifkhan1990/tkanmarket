@@ -11,9 +11,6 @@ export function buyerWishlistRowToFabricSummary(row: BuyerWishlistItemRow): Fabr
     fabricType: null,
     gsm: null,
     widthCm: null,
-    priceUsd: row.priceUsd != null ? row.priceUsd.toFixed(2) : null,
-    moq: row.moq,
-    supplierName: row.supplierName,
     imageUrl: row.imageUrl,
     tags: row.materialSummary ? [row.materialSummary] : [],
     tagsEn: null,
@@ -24,7 +21,6 @@ export function buyerWishlistRowToFabricSummary(row: BuyerWishlistItemRow): Fabr
     shipmentTime: null,
     shipmentTimeEn: null,
     sku: row.sku,
-    socialScore: null,
     hasVideo: false,
     thumbnailUrl: null
   }

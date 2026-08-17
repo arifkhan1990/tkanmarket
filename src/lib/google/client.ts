@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai'
 
-import { GOOGLE_AI_MODELS, GOOGLE_AI_MODEL_PRICING } from '@/constants'
+import { GOOGLE_AI_MODELS, GOOGLE_AI_MODEL_PRICING, GOOGLE_IMAGE_COST_PER_IMAGE } from '@/constants'
 import { getDb } from '@/db'
 import { aiPromptLogs } from '@/db/schema/ai-prompt-logs.schema'
 import { AiGenerationError, classifyAiError } from '@/lib/errors'
@@ -296,114 +296,208 @@ export async function generateGeminiImage(
 
   const ai = getGenAiClient()
 
-  const userParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = []
+  const buildInputParts = (): Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> => {
+    const userParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = []
 
-  if (options?.inputImages && options.inputImages.length > 0) {
-    for (const img of options.inputImages) {
-      if (typeof img === 'string') {
-        let cleanImg = img.trim()
-        // If data url has truncation or invalid header, guard it
-        if (cleanImg.startsWith('data:')) {
-          const commaIdx = cleanImg.indexOf(',')
-          if (commaIdx !== -1) {
-            const header = cleanImg.slice(0, commaIdx)
-            const base64Data = cleanImg.slice(commaIdx + 1)
-            let mimeType = header.split(';')[0]?.replace('data:', '')?.trim()
-            if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
-              mimeType = 'image/jpeg'
-            }
-            if (mimeType && base64Data && base64Data.length > 100) {
-              userParts.push({ inlineData: { mimeType, data: base64Data } })
-            } else {
-              logger.warn('Skipped input image due to insufficient base64 data length or truncation', { length: base64Data?.length })
+    if (options?.inputImages && options.inputImages.length > 0) {
+      for (const img of options.inputImages) {
+        if (typeof img === 'string') {
+          let cleanImg = img.trim()
+          // If data url has truncation or invalid header, guard it
+          if (cleanImg.startsWith('data:')) {
+            const commaIdx = cleanImg.indexOf(',')
+            if (commaIdx !== -1) {
+              const header = cleanImg.slice(0, commaIdx)
+              const base64Data = cleanImg.slice(commaIdx + 1)
+              let mimeType = header.split(';')[0]?.replace('data:', '')?.trim()
+              if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
+                mimeType = 'image/jpeg'
+              }
+              if (mimeType && base64Data && base64Data.length > 100) {
+                userParts.push({ inlineData: { mimeType, data: base64Data } })
+              } else {
+                logger.warn('Skipped input image due to insufficient base64 data length or truncation', { length: base64Data?.length })
+              }
             }
           }
+        } else if (img?.inlineData?.data && img.inlineData.data.length > 100) {
+          let mimeType = img.inlineData.mimeType?.trim()
+          if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
+            mimeType = 'image/jpeg'
+          }
+          userParts.push({ inlineData: { mimeType, data: img.inlineData.data } })
         }
-      } else if (img?.inlineData?.data && img.inlineData.data.length > 100) {
-        let mimeType = img.inlineData.mimeType?.trim()
-        if (!mimeType || !mimeType.startsWith('image/') || mimeType.includes('octet-stream')) {
-          mimeType = 'image/jpeg'
-        }
-        userParts.push({ inlineData: { mimeType, data: img.inlineData.data } })
       }
+    }
+
+    userParts.push({ text: prompt })
+    return userParts
+  }
+
+  /**
+   * Primary path — the Images API (generateImages). It returns a single JSON
+   * HTTP response instead of an SSE stream, so large base64 image payloads are
+   * not truncated and the request completes quickly. This is the correct API
+   * for gemini-3.1-flash-image (Nano Banana 2). generateContent (SSE streaming)
+   * is what truncated / dropped / hung image responses on deployed servers.
+   */
+  const generateViaImagesApi = async (): Promise<string[]> => {
+    const result = await withTimeout(
+      ai.models.generateImages({
+        model,
+        prompt,
+        config: {
+          numberOfImages,
+          aspectRatio: options?.aspectRatio ?? '1:1',
+          httpOptions: { timeout: 120_000 }
+        }
+      }),
+      120_000,
+      'Gemini image generation'
+    )
+
+    const urls: string[] = []
+    for (const g of result.generatedImages ?? []) {
+      const bytes = g.image?.imageBytes
+      const gcsUri = g.image?.gcsUri
+      if (bytes && bytes.length > 500) {
+        urls.push(`data:${g.image?.mimeType ?? 'image/png'};base64,${bytes}`)
+      } else if (gcsUri) {
+        urls.push(gcsUri)
+      } else {
+        logger.warn('Discarded generated image part because it appears truncated', {
+          byteLength: bytes?.length ?? 0,
+          hasGcsUri: Boolean(gcsUri)
+        })
+      }
+    }
+    if (urls.length === 0) throw new Error('Gemini returned no valid non-truncated images')
+    return urls.slice(0, numberOfImages)
+  }
+
+  /**
+   * Fallback path — generateContent with image-only modality. Used only when
+   * the Images API reports the model does not support it (404 / unsupported).
+   */
+  const generateViaGenerateContent = async (): Promise<string[]> => {
+    const result = await withTimeout(
+      ai.models.generateContent({
+        model,
+        contents: [{ role: 'user', parts: buildInputParts() }],
+        config: {
+          responseModalities: ['image']
+        }
+      }),
+      120_000,
+      'Gemini image generation'
+    )
+
+    const responseParts = result.candidates?.[0]?.content?.parts ?? []
+    const urls: string[] = []
+    for (const p of responseParts) {
+      const mimeType = p.inlineData?.mimeType
+      const data = p.inlineData?.data
+      if (mimeType?.startsWith('image/') && data) {
+        // Verify data completeness (check if base64 padding or length looks truncated)
+        if (data.length > 500) {
+          urls.push(`data:${mimeType};base64,${data}`)
+        } else {
+          logger.warn('Discarded returned image part because it appears truncated', { length: data.length })
+        }
+      }
+    }
+    if (urls.length === 0) throw new Error('Gemini returned no valid non-truncated images')
+    return urls.slice(0, numberOfImages)
+  }
+
+  const reportSuccess = (attempt: number, resultDataUrls: string[], durationMs: number): void => {
+    const costUsd = GOOGLE_IMAGE_COST_PER_IMAGE * resultDataUrls.length
+    logger.info('Gemini image generation succeeded', {
+      attempt,
+      model,
+      source: ctx?.source,
+      fabricId: ctx?.fabricId,
+      imageCount: resultDataUrls.length,
+      durationMs,
+      costUsd: costUsd.toFixed(6),
+      promptPreview: truncatedPrompt
+    })
+
+    if (ctx) {
+      logAiCall({
+        source: ctx.source,
+        fabricId: ctx.fabricId,
+        actorId: ctx.actorId,
+        model,
+        prompt,
+        imageCount: resultDataUrls.length,
+        costUsd,
+        status: 'success',
+        durationMs
+      })
     }
   }
 
-  userParts.push({ text: prompt })
+  const reportFailure = (message: string, durationMs: number): never => {
+    const classified = classifyAiError(new Error(message))
+    logger.error('Gemini image generation failed', {
+      model,
+      source: ctx?.source,
+      fabricId: ctx?.fabricId,
+      promptPreview: truncatedPrompt,
+      promptLength: prompt.length,
+      hasInputImages,
+      retryable: classified.retryable,
+      finalError: message,
+      durationMs
+    })
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const result = await withTimeout(
-        ai.models.generateContent({
-          model,
-          contents: [{ role: 'user', parts: userParts }],
-          config: {
-            responseModalities: ['image', 'text']
-          }
-        }),
-        300_000,
-        'Gemini image generation'
-      )
-
-      const responseParts = result.candidates?.[0]?.content?.parts ?? []
-      const urls: string[] = []
-      for (const p of responseParts) {
-        const mimeType = p.inlineData?.mimeType
-        const data = p.inlineData?.data
-        if (mimeType?.startsWith('image/') && data) {
-          // Verify data completeness (check if base64 padding or length looks truncated)
-          if (data.length > 500) {
-            urls.push(`data:${mimeType};base64,${data}`)
-          } else {
-            logger.warn('Discarded returned image part because it appears truncated', { length: data.length })
-          }
-        }
-      }
-      if (urls.length === 0) throw new Error('Gemini returned no valid non-truncated images')
-
-      const resultDataUrls = urls.slice(0, numberOfImages)
-      const durationMs = Date.now() - startTime
-
-      const promptTokens = result.usageMetadata?.promptTokenCount ?? 0
-      const candidatesTokens = result.usageMetadata?.candidatesTokenCount ?? 0
-      const totalTokens = result.usageMetadata?.totalTokenCount ?? 0
-      const costUsd = calculateCost(model, promptTokens, candidatesTokens)
-
-      logger.info('Gemini image generation succeeded', {
-        attempt,
+    if (ctx) {
+      logAiCall({
+        source: ctx.source,
+        fabricId: ctx.fabricId,
+        actorId: ctx.actorId,
         model,
-        source: ctx?.source,
-        fabricId: ctx?.fabricId,
-        imageCount: resultDataUrls.length,
-        totalParts: responseParts.length,
-        durationMs,
-        promptTokens,
-        candidatesTokens,
-        costUsd: costUsd.toFixed(6),
-        promptPreview: truncatedPrompt
+        prompt,
+        status: 'failed',
+        errorMessage: message,
+        durationMs
       })
+    }
 
-      if (ctx) {
-        logAiCall({
-          source: ctx.source,
-          fabricId: ctx.fabricId,
-          actorId: ctx.actorId,
-          model,
-          prompt,
-          imageCount: resultDataUrls.length,
-          promptTokenCount: promptTokens,
-          candidatesTokenCount: candidatesTokens,
-          totalTokenCount: totalTokens,
-          costUsd,
-          status: 'success',
-          durationMs
-        })
-      }
+    throw new AiGenerationError(classified.message, classified.code, classified.statusCode, classified.retryable)
+  }
 
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let message = ''
+    try {
+      const resultDataUrls = await generateViaImagesApi()
+      const durationMs = Date.now() - startTime
+      reportSuccess(attempt, resultDataUrls, durationMs)
       return resultDataUrls
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown image generation error'
-      const classified = classifyAiError(err)
+      message = err instanceof Error ? err.message : 'Unknown image generation error'
+      const lower = message.toLowerCase()
+      const modelDoesNotSupportImagesApi =
+        lower.includes('404') ||
+        lower.includes('not found') ||
+        lower.includes('not supported') ||
+        lower.includes('unsupported') ||
+        lower.includes('method not allowed')
+
+      if (attempt === 1 && modelDoesNotSupportImagesApi) {
+        logger.warn('Images API unsupported, falling back to generateContent', { model, message })
+        try {
+          const fallbackUrls = await generateViaGenerateContent()
+          const durationMs = Date.now() - startTime
+          reportSuccess(attempt, fallbackUrls, durationMs)
+          return fallbackUrls
+        } catch (fallbackErr) {
+          message = fallbackErr instanceof Error ? fallbackErr.message : message
+        }
+      }
+
+      const classified = classifyAiError(new Error(message))
       logger.warn('Gemini image generation failed', {
         attempt,
         message,
@@ -415,33 +509,9 @@ export async function generateGeminiImage(
         promptLength: prompt.length,
         hasInputImages
       })
+
       if (!classified.retryable || attempt >= 2) {
-        const durationMs = Date.now() - startTime
-        logger.error('Gemini image generation failed', {
-          model,
-          source: ctx?.source,
-          fabricId: ctx?.fabricId,
-          promptPreview: truncatedPrompt,
-          promptLength: prompt.length,
-          hasInputImages,
-          retryable: classified.retryable,
-          finalError: message,
-          durationMs
-        })
-
-        if (ctx) {
-          logAiCall({
-            source: ctx.source,
-            fabricId: ctx.fabricId,
-            model,
-            prompt,
-            status: 'failed',
-            errorMessage: message,
-            durationMs
-          })
-        }
-
-        throw new AiGenerationError(classified.message, classified.code, classified.statusCode, classified.retryable)
+        reportFailure(message, Date.now() - startTime)
       }
       await sleep(backoffMs(attempt))
     }

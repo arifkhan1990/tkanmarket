@@ -59,9 +59,9 @@ function FabricCard({ fabric, locale, messages }: { fabric: FabricSummary; local
             {fabric.fabricType}
           </span>
         ) : null}
-        {fabric.priceUsd ? (
+        {fabric.supplyType ? (
           <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-extrabold text-on-surface shadow-sm backdrop-blur-sm">
-            ${fabric.priceUsd}<span className="font-medium text-on-surface-variant">/{messages.hero.priceHint}</span>
+            {fabric.supplyType}
           </span>
         ) : null}
       </div>

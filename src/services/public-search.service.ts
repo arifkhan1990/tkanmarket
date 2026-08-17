@@ -2,7 +2,6 @@ import { and, count, desc, eq, ilike, isNull, or } from 'drizzle-orm'
 
 import { getDb } from '@/db'
 import { fabricCategories, fabrics } from '@/db/schema/fabrics.schema'
-import { suppliers } from '@/db/schema/suppliers.schema'
 import type { Locale } from '@/types/i18n.types'
 import type {
   PublicSearchCategory,
@@ -52,12 +51,6 @@ function pickFabricTitle(
   return titleRu.trim() || (titleEn ?? '').trim() || 'Fabric'
 }
 
-function buildLocationLine(city: string | null, country: string): string | null {
-  const parts = [city, country].filter((v): v is string => !!v && v.length > 0)
-  if (parts.length === 0) return null
-  return parts.join(', ')
-}
-
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -88,11 +81,10 @@ export class PublicSearchService {
       return {
         query: cleaned,
         fabrics: [],
-        suppliers: [],
         categories: [],
         fabricTypes: [],
         trending,
-        totals: { fabrics: 0, suppliers: 0, categories: 0 }
+        totals: { fabrics: 0, categories: 0 }
       }
     }
 
@@ -106,11 +98,9 @@ export class PublicSearchService {
         titleRu: fabrics.titleRu,
         titleEn: fabrics.titleEn,
         images: fabrics.images,
-        fabricType: fabrics.fabricType,
-        supplierName: suppliers.name
+        fabricType: fabrics.fabricType
       })
       .from(fabrics)
-      .leftJoin(suppliers, eq(suppliers.id, fabrics.supplierId))
       .where(
         and(
           isNull(fabrics.deletedAt),
@@ -123,30 +113,6 @@ export class PublicSearchService {
         )
       )
       .orderBy(desc(fabrics.isFeatured), desc(fabrics.viewsCount), desc(fabrics.updatedAt))
-      .limit(PER_GROUP_LIMIT)
-
-    const supplierPromise = db
-      .select({
-        id: suppliers.id,
-        slug: suppliers.slug,
-        name: suppliers.name,
-        verified: suppliers.verified,
-        logoUrl: suppliers.logoUrl,
-        city: suppliers.city,
-        country: suppliers.country
-      })
-      .from(suppliers)
-      .where(
-        and(
-          isNull(suppliers.deletedAt),
-          or(
-            ilike(suppliers.name, pattern),
-            ilike(suppliers.city, pattern),
-            ilike(suppliers.country, pattern)
-          )
-        )
-      )
-      .orderBy(desc(suppliers.verified), desc(suppliers.updatedAt))
       .limit(PER_GROUP_LIMIT)
 
     const categoryPromise = db
@@ -181,9 +147,8 @@ export class PublicSearchService {
         .then((rows) => ({ type: ft, count: Number(rows[0]?.c ?? 0) }))
     )
 
-    const [fabricRows, supplierRows, categoryRows, trending, ...typeCounts] = await Promise.all([
+    const [fabricRows, categoryRows, trending, ...typeCounts] = await Promise.all([
       fabricPromise,
-      supplierPromise,
       categoryPromise,
       trendingPromise,
       ...fabricTypeCountPromises
@@ -206,16 +171,7 @@ export class PublicSearchService {
         sku: f.sku ?? null,
         title: pickFabricTitle(params.locale, f.titleEn, f.titleRu),
         imageUrl: f.images?.[0] ?? null,
-        supplierName: f.supplierName ?? null,
         fabricType: f.fabricType ?? null
-      })),
-      suppliers: supplierRows.map((s) => ({
-        id: s.id,
-        slug: s.slug,
-        name: s.name,
-        verified: s.verified,
-        logoUrl: s.logoUrl,
-        location: buildLocationLine(s.city, s.country)
       })),
       categories: categoryRows.map((row) => ({
         slug: row.slug,
@@ -226,7 +182,6 @@ export class PublicSearchService {
       trending,
       totals: {
         fabrics: fabricRows.length,
-        suppliers: supplierRows.length,
         categories: categoryRows.length
       }
     }

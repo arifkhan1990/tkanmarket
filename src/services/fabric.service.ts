@@ -30,12 +30,9 @@ type RelatedSummaryRow = {
   fabricType: FabricSummary['fabricType']
   gsm: number | null
   widthCm: number | null
-  priceUsd: string | null
-  moq: number | null
   tags: string[] | null
   tagsEn: string[] | null
   images: string[] | null
-  supplierName: string
   color: string | null
   colorEn: string | null
   supplyType: string | null
@@ -47,8 +44,6 @@ type RelatedSummaryRow = {
 }
 
 function mapJoinRowToDetail(row: FabricJoinRow, videoData: { videoUrl: string | null; thumbnailUrl: string | null }): FabricDetail {
-  const aiProcessedAt = row.fabric.aiProcessedAt ? new Date(row.fabric.aiProcessedAt).toISOString() : null
-
   return {
     id: row.fabric.id,
     slug: row.fabric.slug,
@@ -57,9 +52,6 @@ function mapJoinRowToDetail(row: FabricJoinRow, videoData: { videoUrl: string | 
     fabricType: row.fabric.fabricType,
     gsm: row.fabric.gsm,
     widthCm: row.fabric.widthCm,
-    priceUsd: row.fabric.priceUsd ? String(row.fabric.priceUsd) : null,
-    moq: row.fabric.moq,
-    supplierName: row.supplier.name,
     // Resolve Google Drive URLs → lh3 CDN, filter trackers
     imageUrl: filterFabricGalleryImageUrls(row.fabric.images ?? undefined)[0] ?? null,
     tags: row.fabric.tags ?? [],
@@ -82,31 +74,12 @@ function mapJoinRowToDetail(row: FabricJoinRow, videoData: { videoUrl: string | 
     imageAltRu: row.fabric.imageAltRu,
     imageAltEn: row.fabric.imageAltEn,
     sku: row.fabric.sku,
-    sourceUrl: row.fabric.sourceUrl,
-    rawTitle: row.fabric.rawTitle,
-    rawDescription: row.fabric.rawDescription,
-    aiConfidenceScore: row.fabric.aiConfidenceScore ? String(row.fabric.aiConfidenceScore) : null,
-    aiProcessedAt,
-    isFeatured: row.fabric.isFeatured,
-    socialScore: row.fabric.socialScore,
-    viewsCount: row.fabric.viewsCount ?? 0,
     composition: row.fabric.composition ?? null,
     images: filterFabricGalleryImageUrls(row.fabric.images ?? undefined),
     hasVideo: videoData.videoUrl !== null,
     thumbnailUrl: videoData.thumbnailUrl,
     videoUrl: videoData.videoUrl,
-    videoThumbnailUrl: videoData.thumbnailUrl,
-
-    supplier: {
-      id: row.supplier.id,
-      name: row.supplier.name,
-      slug: row.supplier.slug,
-      verified: row.supplier.verified,
-      country: row.supplier.country,
-      city: row.supplier.city,
-      province: row.supplier.province,
-      logoUrl: row.supplier.logoUrl
-    }
+    videoThumbnailUrl: videoData.thumbnailUrl
   }
 }
 
@@ -120,9 +93,6 @@ export class FabricService {
       fabricType: r.fabricType,
       gsm: r.gsm,
       widthCm: r.widthCm,
-      priceUsd: r.priceUsd,
-      moq: r.moq,
-      supplierName: r.supplierName,
       imageUrl: filterFabricGalleryImageUrls(r.images ?? undefined)[0] ?? null,
       tags: r.tags ?? [],
       tagsEn: r.tagsEn ?? null,
@@ -230,6 +200,18 @@ export class FabricService {
       whereClause = and(whereClause, eq(fabrics.supplierId, params.supplier_id))
     }
 
+    if (params.stock_location === 'china') {
+      whereClause = and(
+        whereClause,
+        or(ilike(fabrics.supplyType, '%кита%'), ilike(fabrics.supplyTypeEn, '%china%'))
+      )
+    } else if (params.stock_location === 'moscow') {
+      whereClause = and(
+        whereClause,
+        or(ilike(fabrics.supplyType, '%москв%'), ilike(fabrics.supplyTypeEn, '%moscow%'))
+      )
+    }
+
     if (params.category_slug && params.category_slug.trim().length > 0) {
       const cs = params.category_slug.trim()
       whereClause = and(
@@ -263,14 +245,6 @@ export class FabricService {
 
     const total = totalRows[0]?.total ?? 0
 
-    const [supplierRow] = await db
-      .select({ n: countDistinct(fabrics.supplierId) })
-      .from(fabrics)
-      .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
-      .where(whereClause)
-
-    const supplierCount = Number(supplierRow?.n ?? 0)
-
     const rows = await db
       .select({
         id: fabrics.id,
@@ -280,14 +254,10 @@ export class FabricService {
         fabricType: fabrics.fabricType,
         gsm: fabrics.gsm,
         widthCm: fabrics.widthCm,
-        priceUsd: fabrics.priceUsd,
-        moq: fabrics.moq,
         tags: fabrics.tags,
         tagsEn: fabrics.tagsEn,
         images: fabrics.images,
-        supplierName: suppliers.name,
         sku: fabrics.sku,
-        socialScore: fabrics.socialScore,
         color: fabrics.color,
         colorEn: fabrics.colorEn,
         supplyType: fabrics.supplyType,
@@ -296,7 +266,6 @@ export class FabricService {
         shipmentTimeEn: fabrics.shipmentTimeEn
       })
       .from(fabrics)
-      .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
       .where(whereClause)
       .orderBy(orderBy)
       .limit(params.limit)
@@ -316,14 +285,10 @@ export class FabricService {
           fabricType: r.fabricType,
           gsm: r.gsm,
           widthCm: r.widthCm,
-          priceUsd: r.priceUsd ? String(r.priceUsd) : null,
-          moq: r.moq,
-          supplierName: r.supplierName,
           imageUrl: r.images?.[0] ?? null,
           tags: r.tags ?? [],
           tagsEn: r.tagsEn ?? null,
           sku: r.sku,
-          socialScore: r.socialScore,
           color: r.color ?? null,
           colorEn: r.colorEn ?? null,
           supplyType: r.supplyType ?? null,
@@ -334,8 +299,7 @@ export class FabricService {
           thumbnailUrl: video.thumbnailUrl
         }
       }),
-      total,
-      supplierCount
+      total
     }
   }
 
@@ -453,28 +417,24 @@ private static async getRelatedSingleQuery(args: {
          LIMIT 1
        )
        SELECT
-         ${fabrics.id} AS id,
-         ${fabrics.slug} AS slug,
-         ${fabrics.titleRu} AS "titleRu",
-         ${fabrics.titleEn} AS "titleEn",
-         ${fabrics.fabricType} AS "fabricType",
-         ${fabrics.gsm} AS gsm,
-         ${fabrics.widthCm} AS "widthCm",
-         ${fabrics.priceUsd}::text AS "priceUsd",
-         ${fabrics.moq} AS moq,
-         ${fabrics.tags} AS tags,
-         ${fabrics.tagsEn} AS "tagsEn",
-         ${fabrics.images} AS images,
-         ${fabrics.color} AS color,
-         ${fabrics.colorEn} AS "colorEn",
-         ${fabrics.supplyType} AS "supplyType",
-         ${fabrics.supplyTypeEn} AS "supplyTypeEn",
-         ${fabrics.shipmentTime} AS "shipmentTime",
-         ${fabrics.shipmentTimeEn} AS "shipmentTimeEn",
-         ${suppliers.name} AS "supplierName"
-       FROM ${fabrics}
-       INNER JOIN ${suppliers} ON ${fabrics.supplierId} = ${suppliers.id}
-       CROSS JOIN self
+          ${fabrics.id} AS id,
+          ${fabrics.slug} AS slug,
+          ${fabrics.titleRu} AS "titleRu",
+          ${fabrics.titleEn} AS "titleEn",
+          ${fabrics.fabricType} AS "fabricType",
+          ${fabrics.gsm} AS gsm,
+          ${fabrics.widthCm} AS "widthCm",
+          ${fabrics.tags} AS tags,
+          ${fabrics.tagsEn} AS "tagsEn",
+          ${fabrics.images} AS images,
+          ${fabrics.color} AS color,
+          ${fabrics.colorEn} AS "colorEn",
+          ${fabrics.supplyType} AS "supplyType",
+          ${fabrics.supplyTypeEn} AS "supplyTypeEn",
+           ${fabrics.shipmentTime} AS "shipmentTime",
+           ${fabrics.shipmentTimeEn} AS "shipmentTimeEn"
+        FROM ${fabrics}
+        CROSS JOIN self
        WHERE ${fabrics.deletedAt} IS NULL
          AND ${fabrics.status} = ${approved}
          AND ${fabrics.id} <> self.id
@@ -510,9 +470,6 @@ return rows.map((r) => {
         fabricType: r.fabricType,
         gsm: r.gsm,
         widthCm: r.widthCm,
-        priceUsd: r.priceUsd,
-        moq: r.moq,
-        supplierName: r.supplierName,
         imageUrl: r.images?.[0] ?? null,
         tags: r.tags ?? [],
         tagsEn: r.tagsEn ?? null,
@@ -547,14 +504,10 @@ return rows.map((r) => {
         fabricType: fabrics.fabricType,
         gsm: fabrics.gsm,
         widthCm: fabrics.widthCm,
-        priceUsd: fabrics.priceUsd,
-        moq: fabrics.moq,
         tags: fabrics.tags,
         tagsEn: fabrics.tagsEn,
         images: fabrics.images,
         sku: fabrics.sku,
-        socialScore: fabrics.socialScore,
-        supplierName: suppliers.name,
         color: fabrics.color,
         colorEn: fabrics.colorEn,
         supplyType: fabrics.supplyType,
@@ -563,7 +516,6 @@ return rows.map((r) => {
         shipmentTimeEn: fabrics.shipmentTimeEn
       })
       .from(fabrics)
-      .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
       .where(and(isNull(fabrics.deletedAt), eq(fabrics.status, 'approved')))
       .orderBy(
         desc(fabrics.isFeatured),
@@ -585,14 +537,10 @@ return rows.map((r) => {
         fabricType: r.fabricType,
         gsm: r.gsm,
         widthCm: r.widthCm,
-        priceUsd: r.priceUsd ? String(r.priceUsd) : null,
-        moq: r.moq,
-        supplierName: r.supplierName,
         imageUrl: r.images?.[0] ?? null,
         tags: r.tags ?? [],
         tagsEn: r.tagsEn ?? null,
         sku: r.sku,
-        socialScore: r.socialScore,
         color: r.color ?? null,
         colorEn: r.colorEn ?? null,
         supplyType: r.supplyType ?? null,

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Building2, Droplets, Ruler, Sparkles, Star, Package } from 'lucide-react'
+import { Building2, Droplets, Ruler, Sparkles, Package } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
@@ -19,7 +19,6 @@ import { useI18n } from '@/hooks/useI18n'
 import { DEFAULT_LOCALE } from '@/types/i18n.types'
 import { getLocaleFromPathname, withLocaleUrl } from '@/lib/i18n/locale-path'
 import { getLocalizedFabricTitle, getLocalizedFabricTags } from '@/lib/i18n/localized-fabric'
-import { engagementScoreToRatingLabel } from '@/lib/marketplace/fabric-engagement-rating'
 
 export function FabricListRow({
   fabric,
@@ -48,7 +47,6 @@ export function FabricListRow({
 
   const fabricHref = withLocaleUrl(`/fabrics/${fabric.slug}`, locale)
   const skuDisplay = fabric.sku?.trim() ? fabric.sku : '—'
-  const ratingLabel = fabric.socialScore != null ? engagementScoreToRatingLabel(fabric.socialScore) : null
 
   return (
     <div
@@ -82,12 +80,6 @@ export function FabricListRow({
               <span className="line-clamp-1">{fabric.fabricType ?? messages.fabrics.filters.types.other}</span>
             </Badge>
           </div>
-          {ratingLabel ? (
-            <div className="pointer-events-none flex shrink-0 items-center gap-0.5 rounded-full bg-black/65 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-md ring-1 ring-white/15 backdrop-blur-md sm:gap-1 sm:px-2 sm:py-1 sm:text-[11px]">
-              <Star className="h-2.5 w-2.5 shrink-0 fill-amber-400 text-amber-400 sm:h-3 sm:w-3" aria-hidden />
-              {ratingLabel}
-            </div>
-          ) : null}
         </div>
 
         <div
@@ -113,7 +105,7 @@ export function FabricListRow({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[6] bg-gradient-to-t from-black/75 via-black/35 to-transparent px-1.5 pb-1 pt-5">
           <div className="flex items-center gap-0.5 text-[9px] font-bold text-white drop-shadow-md sm:text-[10px]">
             <Building2 className="h-3 w-3 shrink-0 opacity-95" aria-hidden />
-            <span className="line-clamp-1">{fabric.supplierName}</span>
+            <span className="line-clamp-1">{fabric.fabricType ?? messages.fabrics.filters.types.other}</span>
           </div>
         </div>
       </div>
@@ -147,13 +139,13 @@ export function FabricListRow({
 
         <div className="flex flex-wrap items-end justify-between gap-3 border-t border-outline/10 pt-3">
           <div className="min-w-0 space-y-0.5">
-            <div className="text-base font-bold text-primary md:text-lg">
-              {fabric.priceUsd ? `$${fabric.priceUsd}` : '—'}{' '}
-              <span className="text-xs font-normal text-on-surface-variant">{messages.featured.perMeter}</span>
+            <div className="text-[11px] text-on-surface-variant">
+              <span className="font-bold uppercase tracking-wide text-outline/80">Color</span>{' '}
+              <span className="font-semibold text-on-surface">{fabric.color ?? '—'}</span>
             </div>
             <div className="text-[11px] text-on-surface-variant">
-              <span className="font-bold uppercase tracking-wide text-outline/80">{messages.fabrics.filters.moq}</span>{' '}
-              <span className="font-semibold text-on-surface">{fabric.moq ?? '—'}</span>
+              <span className="font-bold uppercase tracking-wide text-outline/80">Supply Type</span>{' '}
+              <span className="font-semibold text-on-surface">{fabric.supplyType ?? '—'}</span>
             </div>
           </div>
           <Button

@@ -259,6 +259,10 @@ export const enMessages = {
       width: 'Width',
       clear: 'Clear',
       moq: 'MOQ',
+      stockLocation: 'Ready stock',
+      stockLocationAny: 'Any location',
+      stockLocationChina: 'Ready stock in China',
+      stockLocationMoscow: 'Ready stock in Moscow',
       moqRanges: {
         lt50: '< 50m',
         between50And200: '50–200m',
@@ -280,7 +284,7 @@ export const enMessages = {
     viewSimilar: 'View similar fabrics',
     searchResults: {
       titlePrefix: 'Search results for',
-      subtitle: 'Found {total} professional-grade fabrics from {suppliers} suppliers.',
+      subtitle: 'Found {total} professional-grade fabrics.',
       refinePlaceholder: 'Refine your search…',
       refineSubmit: 'Apply',
       chipAll: 'All results',
@@ -1051,7 +1055,7 @@ export const enMessages = {
     ctaTitle: 'Questions about these terms?',
     ctaLead: 'Our support team can route legal and supplier questions to the right desk.',
     ctaContact: 'Contact support',
-    ctaSupplier: 'Supplier resources',
+    ctaCatalog: 'Browse catalog',
   },
   contactPage: {
     metaTitle: 'TkanMarket | Contact',

@@ -1,5 +1,12 @@
-import type { LeadSource, LeadStatus } from '@/types/marketplace.types'
-import type { FabricSummary } from '@/types/marketplace.types'
+import type { LeadStatus, LeadSource } from '@/types/marketplace.types'
+
+export interface LeadFabricSnapshot {
+  id: number
+  slug: string
+  titleRu: string
+  imageUrl: string | null
+  supplierName: string
+}
 
 export interface Lead {
   id: number
@@ -31,7 +38,7 @@ export interface LeadSummary {
   phone: string | null
   country: string
   assignedTo: { id: number; name: string; email: string; avatarUrl?: string | null } | null
-  fabric: Pick<FabricSummary, 'id' | 'slug' | 'titleRu' | 'imageUrl' | 'supplierName'> | null
+  fabric: LeadFabricSnapshot | null
   createdAt: string
 }
 
@@ -62,7 +69,7 @@ export interface LeadScoringSnapshot {
 export interface LeadDetail {
   lead: Lead
   assignedTo: { id: number; name: string; email: string; avatarUrl?: string | null } | null
-  fabric: Pick<FabricSummary, 'id' | 'slug' | 'titleRu' | 'imageUrl' | 'supplierName'> | null
+  fabric: LeadFabricSnapshot | null
   notes: LeadNote[]
   activity: LeadActivity[]
   scoring: LeadScoringSnapshot

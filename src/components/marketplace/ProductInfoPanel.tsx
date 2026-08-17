@@ -1,8 +1,7 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
-import { BadgeCheck, Copy, ExternalLink, Palette } from 'lucide-react'
+import { Copy, ExternalLink, Palette } from 'lucide-react'
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { toast } from 'sonner'
@@ -17,7 +16,6 @@ import { useI18n } from '@/hooks/useI18n'
 import { DEFAULT_LOCALE } from '@/types/i18n.types'
 import { getLocaleFromPathname, withLocaleUrl } from '@/lib/i18n/locale-path'
 import { getLocalizedFabricTitle, getLocalizedFabricTags } from '@/lib/i18n/localized-fabric'
-import { isRemoteImageSrc } from '@/lib/utils'
 
 function typeLabel(v: FabricDetail['fabricType'], labels: Record<string, string>, fallbackOther: string) {
   if (!v) return fallbackOther
@@ -34,10 +32,10 @@ export function ProductInfoPanel({ fabric }: { fabric: FabricDetail }) {
   const [bulkOpen, setBulkOpen] = useState(false)
 
   const title = getLocalizedFabricTitle(fabric, locale)
-  const summary =
+  const usage =
     locale === 'en'
-      ? (fabric.descriptionEn?.trim() ? fabric.descriptionEn : fabric.descriptionRu)
-      : fabric.descriptionRu
+      ? (fabric.usageEn?.trim() ? fabric.usageEn : fabric.usageRu)
+      : (fabric.usageRu?.trim() ? fabric.usageRu : fabric.usageEn)
   const localizedTags = getLocalizedFabricTags(fabric, locale)
 
   const fabricUrl = withLocaleUrl(`/fabrics/${encodeURIComponent(fabric.slug)}`, locale)
@@ -60,17 +58,11 @@ export function ProductInfoPanel({ fabric }: { fabric: FabricDetail }) {
           ) : (
             <span className="text-xs text-outline">—</span>
           )}
-          {fabric.supplier.verified ? (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
-              <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {messages.suppliers.badgeVerified}
-            </span>
-          ) : null}
         </div>
         <div className="flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
             <span className="shrink-0 rounded-full bg-secondary-container px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-on-secondary-container">
-              {fabric.isFeatured ? wv.featuredBadge : wv.premiumGrade}
+              {wv.premiumGrade}
             </span>
             {fabric.sku ? (
               <span className="hidden min-w-0 truncate font-mono text-xs text-outline lg:inline">
@@ -106,25 +98,13 @@ export function ProductInfoPanel({ fabric }: { fabric: FabricDetail }) {
           </div>
         </div>
         <h1 className="font-heading text-3xl font-extrabold tracking-tighter text-primary lg:text-4xl">{title}</h1>
-        <p className="text-sm font-normal leading-relaxed text-on-surface-variant line-clamp-4">
-          {summary?.trim() ? summary : messages.product.descriptionMissing}
-        </p>
+        {usage?.trim() ? (
+          <p className="text-sm font-normal leading-relaxed text-on-surface-variant line-clamp-4">{usage}</p>
+        ) : null}
         <p className="text-xs font-bold uppercase tracking-widest text-secondary">{typeStr}</p>
       </header>
 
       <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm max-lg:shadow-lg">
-        <div className="mb-6 flex items-baseline justify-between gap-4">
-          <div>
-            <span className="font-heading text-4xl font-bold text-primary">
-              {fabric.priceUsd ? `$${fabric.priceUsd}` : '—'}
-            </span>
-            <span className="ml-1 font-medium text-outline">{messages.product.specs.perMeterSuffix}</span>
-          </div>
-          <div className="text-right">
-            <span className="mb-1 block text-xs uppercase tracking-widest text-outline">{messages.product.specs.moq}</span>
-            <span className="font-bold text-on-surface">{fabric.moq != null ? `${fabric.moq}m` : '—'}</span>
-          </div>
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="rounded-lg bg-surface-container-low p-4">
             <span className="mb-1 block text-[10px] uppercase tracking-widest text-outline">{messages.product.specs.gsm}</span>
@@ -157,6 +137,10 @@ export function ProductInfoPanel({ fabric }: { fabric: FabricDetail }) {
           <div className="rounded-lg bg-surface-container-low p-4">
             <span className="mb-1 block text-[10px] uppercase tracking-widest text-outline">Supply Type</span>
             <span className="font-heading text-lg font-bold text-primary">{fabric.supplyType ?? '—'}</span>
+          </div>
+          <div className="rounded-lg bg-surface-container-low p-4">
+            <span className="mb-1 block text-[10px] uppercase tracking-widest text-outline">Shipment Time</span>
+            <span className="font-heading text-lg font-bold text-primary">{fabric.shipmentTime ?? '—'}</span>
           </div>
         </div>
       </div>
@@ -214,43 +198,6 @@ export function ProductInfoPanel({ fabric }: { fabric: FabricDetail }) {
           </div>
         </div>
       ) : null}
-
-      <div className="flex items-center gap-4 rounded-lg border border-outline-variant/20 bg-surface-container-lowest p-5">
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-container-high">
-          {fabric.supplier.logoUrl ? (
-            <Image
-              src={fabric.supplier.logoUrl}
-              alt={fabric.supplier.name}
-              fill
-              sizes="48px"
-              className="object-cover"
-              unoptimized={isRemoteImageSrc(fabric.supplier.logoUrl)}
-            />
-          ) : (
-            <span className="text-xs font-bold text-primary">{fabric.supplier.name.slice(0, 1)}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-bold">{fabric.supplier.name}</span>
-            {fabric.supplier.verified ? <BadgeCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden /> : null}
-          </div>
-          <div className="mt-0.5 text-xs text-on-surface-variant">
-            {fabric.supplier.country}
-            {fabric.supplier.city ? `, ${fabric.supplier.city}` : ''}
-          </div>
-          <Link href={withLocaleUrl(`/suppliers/${fabric.supplier.slug}`, locale)} className="mt-1 inline-block text-xs font-semibold text-primary hover:underline">
-            {messages.product.goToSupplier}
-          </Link>
-        </div>
-        {fabric.sourceUrl ? (
-          <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full" asChild>
-            <a href={fabric.sourceUrl} target="_blank" rel="noreferrer" aria-label={messages.product.specs.openSource}>
-              <ExternalLink className="h-5 w-5" aria-hidden />
-            </a>
-          </Button>
-        ) : null}
-      </div>
 
       <SampleRequestModal fabric={{ id: fabric.id, title }} isOpen={sampleOpen} onClose={() => setSampleOpen(false)} />
       <BulkInquiryModal fabric={{ id: fabric.id, title }} isOpen={bulkOpen} onClose={() => setBulkOpen(false)} />

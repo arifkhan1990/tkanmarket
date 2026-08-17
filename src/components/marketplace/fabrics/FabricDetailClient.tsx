@@ -29,7 +29,7 @@ import { getLocalizedFabricTitle, getLocalizedFabricTags } from '@/lib/i18n/loca
 import { useI18n } from '@/hooks/useI18n'
 import { LEAD_SUCCESS_PATH } from '@/lib/routes/lead-success'
 
-type TabKey = 'description' | 'specs' | 'supplier'
+type TabKey = 'description' | 'specs'
 
 export function FabricDetailClient({ slug }: { slug: string }) {
   const fabricQuery = useFabric(slug)
@@ -156,7 +156,7 @@ export function FabricDetailClient({ slug }: { slug: string }) {
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.fabricDetailClient.views}</div>
-                    <div className="font-mono text-sm font-bold text-on-surface">{fabric.viewsCount ?? 0}</div>
+                    <div className="font-mono text-sm font-bold text-on-surface">{fabric.shipmentTime ?? '—'}</div>
                   </div>
                 </div>
 
@@ -189,33 +189,15 @@ export function FabricDetailClient({ slug }: { slug: string }) {
 
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.product.specs.price}</div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-outline/80">Color</div>
                     <div className="mt-1 font-mono text-3xl font-extrabold text-on-surface">
-                      {fabric.priceUsd ? `$${fabric.priceUsd}` : '—'}
+                      {fabric.color ?? '—'}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.product.specs.moq}</div>
-                    <div className="mt-1 font-mono text-xl font-extrabold text-on-surface">{fabric.moq ?? '—'}</div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-outline/80">Supply Type</div>
+                    <div className="mt-1 font-mono text-xl font-extrabold text-on-surface">{fabric.supplyType ?? '—'}</div>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-3xl bg-surface-container-lowest border border-outline/10 overflow-hidden flex items-center justify-center">
-                      <span className="font-extrabold text-primary">S</span>
-                    </div>
-                    <div className="space-y-0">
-                      <div className="text-sm font-bold text-on-surface">{fabric.supplierName}</div>
-                      <div className="text-xs text-on-surface-variant">{messages.fabricDetailClient.verifiedSupplier}</div>
-                    </div>
-                  </div>
-                  <Link
-                    href={withLocaleUrl(`/suppliers/${fabric.supplier.slug}`, locale)}
-                    className="text-sm font-extrabold text-primary hover:opacity-90 transition-opacity"
-                  >
-                    {messages.fabricDetailClient.supplierProfileShort}
-                  </Link>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -246,8 +228,8 @@ export function FabricDetailClient({ slug }: { slug: string }) {
                       <div className="font-mono font-bold">{fabric.widthCm ? `${fabric.widthCm} cm` : '—'}</div>
                     </div>
                     <div className="space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">MOq</div>
-                      <div className="font-mono font-bold">{fabric.moq ?? '—'}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Shipment Time</div>
+                      <div className="font-mono font-bold">{fabric.shipmentTime ?? '—'}</div>
                     </div>
                     <div className="space-y-1">
                       <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{messages.product.specs.type}</div>
@@ -272,8 +254,7 @@ export function FabricDetailClient({ slug }: { slug: string }) {
                   {(
                     [
                       ['description', messages.fabricDetailClient.tabs.description],
-                      ['specs', messages.fabricDetailClient.tabs.specs],
-                      ['supplier', messages.fabricDetailClient.tabs.supplier]
+                      ['specs', messages.fabricDetailClient.tabs.specs]
                     ] as const
                   ).map(([key, label]) => (
                     <button
@@ -322,10 +303,6 @@ export function FabricDetailClient({ slug }: { slug: string }) {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.product.specs.moq}</div>
-                      <div className="text-body-lg text-on-surface-variant">{fabric.moq ?? '—'}</div>
-                    </div>
-                    <div className="space-y-2">
                       <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.fabricDetailClient.fabricTypeLabel}</div>
                       <div className="text-body-lg text-on-surface-variant">{fabric.fabricType ?? '—'}</div>
                     </div>
@@ -350,24 +327,6 @@ export function FabricDetailClient({ slug }: { slug: string }) {
                       </div>
                     </div>
                   </div>
-                </div>
-              ) : null}
-
-              {tab === 'supplier' ? (
-                <div className="rounded-[3rem] bg-surface-container-lowest border border-outline/10 p-6 space-y-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold uppercase tracking-widest text-outline/80">{messages.fabricDetailClient.tabs.supplier}</div>
-                      <div className="text-lg font-extrabold">{fabric.supplier.name}</div>
-                    </div>
-                    <Link
-                      href={withLocaleUrl(`/suppliers/${fabric.supplier.slug}`, locale)}
-                      className="text-sm font-extrabold text-primary hover:opacity-90 transition-opacity"
-                    >
-                      {messages.fabricDetailClient.goToProfile}
-                    </Link>
-                  </div>
-                  <div className="text-sm text-on-surface-variant leading-relaxed">{fabric.supplierName}</div>
                 </div>
               ) : null}
             </section>

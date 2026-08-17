@@ -44,7 +44,6 @@ export async function HeroFeaturedRail(props: { limit?: number }) {
         {fabrics.map((f, idx) => {
           const href = withLocaleUrl(`/fabrics/${f.slug}`, locale)
           const imageSrc = f.imageUrl?.trim() ? f.imageUrl : FABRIC_IMAGE_PLACEHOLDER_PATH
-          const hasPrice = Boolean(f.priceUsd)
           return (
             <Link
               key={f.id}
@@ -82,8 +81,10 @@ export async function HeroFeaturedRail(props: { limit?: number }) {
               </div>
 
               <div className="shrink-0 text-right">
-                <div className="text-sm font-extrabold text-primary">{hasPrice ? `$${f.priceUsd}` : '—'}</div>
-                <div className="mt-0.5 text-[11px] font-semibold text-on-surface-variant">{m.hero.priceHint}</div>
+                <div className="text-sm font-extrabold text-primary">{f.color ?? '—'}</div>
+                {f.shipmentTime ? (
+                  <div className="mt-0.5 text-[11px] font-semibold text-on-surface-variant">{f.shipmentTime}</div>
+                ) : null}
               </div>
             </Link>
           )

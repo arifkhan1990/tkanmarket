@@ -1,3 +1,8 @@
+/**
+ * Public-facing fabric card/summary data. Only fields intended for public
+ * visitors are exposed — pricing, MOQ, engagement scores and internal
+ * analytics are never returned to the public API/SSR.
+ */
 export interface FabricSummary {
   id: number
   slug: string
@@ -6,9 +11,6 @@ export interface FabricSummary {
   fabricType: string | null
   gsm: number | null
   widthCm: number | null
-  priceUsd: string | null
-  moq: number | null
-  supplierName: string
   imageUrl: string | null
   tags: string[]
   tagsEn: string[] | null
@@ -20,8 +22,6 @@ export interface FabricSummary {
   shipmentTimeEn: string | null
   /** Present when loaded for featured/home cards */
   sku?: string | null
-  /** Optional engagement score (0–100); used for home card rating when set */
-  socialScore?: number | null
   /** Whether the fabric has an AI-generated video */
   hasVideo: boolean
   /** Thumbnail URL for the AI-generated video */
@@ -64,6 +64,12 @@ export interface SupplierDetail extends SupplierSummary {
   insights: SupplierProfileInsights
 }
 
+/**
+ * Public-facing fabric detail data. `descriptionRu/En` and the `meta*`
+ * fields are only used for SEO `<meta>`/JSON-LD — they are never rendered as
+ * visible page content. Internal scraping/AI-processing fields (raw data,
+ * source URL, AI confidence, view counts, featured flag) are not exposed.
+ */
 export interface FabricDetail extends FabricSummary {
   descriptionRu: string
   descriptionEn: string | null
@@ -76,37 +82,17 @@ export interface FabricDetail extends FabricSummary {
   imageAltRu: string | null
   imageAltEn: string | null
   sku: string | null
-  sourceUrl: string | null
-  rawTitle: string | null
-  rawDescription: string | null
-  aiConfidenceScore: string | null
-  aiProcessedAt: string | null
-  isFeatured: boolean
-  socialScore: number | null
-  viewsCount: number
   composition: Array<{ material: string; percentage: number }> | null
   images: string[]
   /** AI-generated video URL (completed) */
   videoUrl: string | null
   /** Thumbnail URL for the AI-generated video */
   videoThumbnailUrl: string | null
-  supplier: {
-    id: number
-    name: string
-    slug: string
-    verified: boolean
-    country: string
-    city: string | null
-    province: string | null
-    logoUrl: string | null
-  }
 }
 
 export interface PaginatedResult<T> {
   items: T[]
   total: number
-  /** Distinct suppliers matching the same filters as `items` (catalog search). */
-  supplierCount?: number
 }
 
 /** Counts of approved fabrics per `fabric_categories.category_slug` (junction). */

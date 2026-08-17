@@ -11,6 +11,7 @@ export function countActiveFabricFilters(f: FabricQueryParams): number {
   else if (typeof f.width === 'number') n += 1
 
   if (typeof f.moq_min === 'number' || typeof f.moq_max === 'number') n += 1
+  if (f.stock_location) n += 1
   if (f.q) n += 1
   if (f.category_slug && f.category_slug.trim().length > 0) n += 1
   return n

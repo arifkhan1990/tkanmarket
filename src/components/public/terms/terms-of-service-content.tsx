@@ -199,7 +199,7 @@ export function TermsOfServiceContent({ locale, messages }: TermsOfServiceConten
                 <Link href={withLocaleUrl('/contact', locale)}>{t.ctaContact}</Link>
               </Button>
               <Button asChild variant="outline" className="rounded-xl border-white/30 bg-white font-bold text-primary hover:bg-white/90">
-                <Link href={withLocaleUrl('/suppliers', locale)}>{t.ctaSupplier}</Link>
+                <Link href={withLocaleUrl('/fabrics', locale)}>{t.ctaCatalog}</Link>
               </Button>
             </div>
           </section>

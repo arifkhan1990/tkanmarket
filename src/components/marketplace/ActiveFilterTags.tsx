@@ -111,6 +111,17 @@ export function ActiveFilterTags({ currentFilters }: { currentFilters: FabricFil
     })
   }
 
+  if (currentFilters.stock_location) {
+    const label =
+      currentFilters.stock_location === 'china'
+        ? messages.fabrics.filters.stockLocationChina
+        : messages.fabrics.filters.stockLocationMoscow
+    tags.push({
+      label: `${messages.fabrics.filters.stockLocation}: ${label}`,
+      onRemove: () => router.push(withLocaleUrl(`/fabrics?${removeParam(sp, 'stock_location').toString()}`, locale))
+    })
+  }
+
   if (currentFilters.q) {
     tags.push({
       label: `${messages.suppliers.searchLabel}: ${currentFilters.q}`,

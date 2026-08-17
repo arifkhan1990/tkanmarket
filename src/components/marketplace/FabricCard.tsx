@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Building2, Droplets, Package, Ruler, Sparkles, Star, Video } from 'lucide-react'
+import { Building2, Droplets, Package, Ruler, Sparkles, Video } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
@@ -19,7 +19,6 @@ import { useI18n } from '@/hooks/useI18n'
 import { DEFAULT_LOCALE } from '@/types/i18n.types'
 import { getLocaleFromPathname, withLocaleUrl } from '@/lib/i18n/locale-path'
 import { getLocalizedFabricTitle, getLocalizedFabricTags } from '@/lib/i18n/localized-fabric'
-import { engagementScoreToRatingLabel } from '@/lib/marketplace/fabric-engagement-rating'
 
 export function FabricCard({
   fabric,
@@ -50,7 +49,6 @@ export function FabricCard({
 
   const fabricHref = withLocaleUrl(`/fabrics/${fabric.slug}`, locale)
   const skuDisplay = fabric.sku?.trim() ? fabric.sku : '—'
-  const ratingLabel = fabric.socialScore != null ? engagementScoreToRatingLabel(fabric.socialScore) : null
 
   useEffect(() => {
     router.prefetch(fabricHref)
@@ -104,7 +102,7 @@ export function FabricCard({
             )}
           </Link>
 
-        {/* Top: fabric type + rating only (always visible) */}
+        {/* Top: fabric type (always visible) */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[8] flex items-start justify-between gap-2 p-3">
           <div className="pointer-events-none min-w-0 max-w-[calc(100%-5rem)]">
             <Badge
@@ -116,12 +114,6 @@ export function FabricCard({
               </span>
             </Badge>
           </div>
-          {ratingLabel ? (
-            <div className="pointer-events-none flex shrink-0 items-center gap-1 rounded-full bg-black/65 px-2.5 py-0.5 text-[11px] font-bold text-white shadow-md ring-1 ring-white/15 backdrop-blur-md">
-              <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" aria-hidden />
-              {ratingLabel}
-            </div>
-          ) : null}
         </div>
 
         {/* Wishlist + compare: bottom-right, only on media hover (or when focused for keyboard) */}
@@ -142,7 +134,7 @@ export function FabricCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[6] bg-gradient-to-t from-black/75 via-black/40 to-transparent px-3 pb-2 pt-8">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-white drop-shadow-md">
             <Building2 className="h-3.5 w-3.5 shrink-0 opacity-95" aria-hidden />
-            <span className="line-clamp-1">{fabric.supplierName}</span>
+            <span className="line-clamp-1">{fabric.fabricType ?? messages.fabrics.filters.types.other}</span>
           </div>
         </div>
       </div>
@@ -176,13 +168,13 @@ export function FabricCard({
 
         <div className="flex items-center justify-between gap-2 border-t border-outline/10 pt-2">
           <div className="min-w-0 space-y-0.5">
-            <div className="text-lg font-bold text-primary md:text-xl">
-              {fabric.priceUsd ? `$${fabric.priceUsd}` : '—'}{' '}
-              <span className="text-xs font-normal text-on-surface-variant md:text-sm">{messages.featured.perMeter}</span>
+            <div className="text-[11px] text-on-surface-variant">
+              <span className="font-bold uppercase tracking-wide text-outline/80">Color</span>{' '}
+              <span className="font-semibold text-on-surface">{fabric.color ?? '—'}</span>
             </div>
             <div className="text-[11px] text-on-surface-variant">
-              <span className="font-bold uppercase tracking-wide text-outline/80">{messages.fabrics.filters.moq}</span>{' '}
-              <span className="font-semibold text-on-surface">{fabric.moq ?? '—'}</span>
+              <span className="font-bold uppercase tracking-wide text-outline/80">Supply Type</span>{' '}
+              <span className="font-semibold text-on-surface">{fabric.supplyType ?? '—'}</span>
             </div>
           </div>
           <Button

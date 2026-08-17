@@ -33,7 +33,6 @@ function ShowcaseCard({
   const specs: string[] = []
   if (fabric.gsm) specs.push(`${fabric.gsm}${messages.fabricCard.gsmUnit}`)
   if (fabric.widthCm) specs.push(`${fabric.widthCm} cm`)
-  if (fabric.supplierName && variant === 'main') specs.push(fabric.supplierName)
 
   return (
     <Link
@@ -82,16 +81,15 @@ function ShowcaseCard({
         </span>
       ) : null}
 
-      {/* Price badge */}
-      {fabric.priceUsd ? (
+      {/* Supply type badge */}
+      {fabric.supplyType ? (
         <span
           className={cn(
             'absolute right-3 top-3 rounded-lg bg-white/95 px-2.5 py-1 text-[11px] font-extrabold text-on-surface shadow-sm backdrop-blur-sm',
             variant === 'main' && 'sm:right-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs'
           )}
         >
-          ${fabric.priceUsd}
-          <span className="font-semibold text-on-surface-variant">/{messages.hero.priceHint}</span>
+          {fabric.supplyType}
         </span>
       ) : null}
 

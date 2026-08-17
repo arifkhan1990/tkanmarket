@@ -30,13 +30,13 @@ const PLACEHOLDER_IMAGES = [
   CATEGORY_GRID_IMAGE_BY_SLUG['Шерсть'],
 ].filter((v): v is { src: string; altEn: string } => v != null)
 
-const PLACEHOLDER_META: Array<{ titleRu: string; titleEn: string; fabricType: string; gsm: number; widthCm: number; priceUsd: string }> = [
-  { titleRu: 'Хлопок премиум', titleEn: 'Premium Cotton', fabricType: 'WOVEN', gsm: 180, widthCm: 150, priceUsd: '3.20' },
-  { titleRu: 'Натуральный шёлк', titleEn: 'Natural Silk', fabricType: 'WOVEN', gsm: 65, widthCm: 140, priceUsd: '8.50' },
-  { titleRu: 'Лён классический', titleEn: 'Classic Linen', fabricType: 'WOVEN', gsm: 200, widthCm: 145, priceUsd: '4.80' },
-  { titleRu: 'Полиэстер техно', titleEn: 'Tech Polyester', fabricType: 'KNIT', gsm: 160, widthCm: 155, priceUsd: '2.10' },
-  { titleRu: 'Трикотаж базовый', titleEn: 'Basic Knit', fabricType: 'KNIT', gsm: 220, widthCm: 160, priceUsd: '3.50' },
-  { titleRu: 'Шерсть мериноса', titleEn: 'Merino Wool', fabricType: 'WOVEN', gsm: 280, widthCm: 150, priceUsd: '6.90' },
+const PLACEHOLDER_META: Array<{ titleRu: string; titleEn: string; fabricType: string; gsm: number; widthCm: number; supplyType: string }> = [
+  { titleRu: 'Хлопок премиум', titleEn: 'Premium Cotton', fabricType: 'WOVEN', gsm: 180, widthCm: 150, supplyType: 'In stock' },
+  { titleRu: 'Натуральный шёлк', titleEn: 'Natural Silk', fabricType: 'WOVEN', gsm: 65, widthCm: 140, supplyType: 'In stock' },
+  { titleRu: 'Лён классический', titleEn: 'Classic Linen', fabricType: 'WOVEN', gsm: 200, widthCm: 145, supplyType: 'Made to order' },
+  { titleRu: 'Полиэстер техно', titleEn: 'Tech Polyester', fabricType: 'KNIT', gsm: 160, widthCm: 155, supplyType: 'In stock' },
+  { titleRu: 'Трикотаж базовый', titleEn: 'Basic Knit', fabricType: 'KNIT', gsm: 220, widthCm: 160, supplyType: 'In stock' },
+  { titleRu: 'Шерсть мериноса', titleEn: 'Merino Wool', fabricType: 'WOVEN', gsm: 280, widthCm: 150, supplyType: 'Made to order' },
 ]
 
 function getPlaceholderImage(index: number): { src: string; altEn: string } {
@@ -200,9 +200,9 @@ function FabricCard({
         </span>
       ) : null}
 
-      {fabric.priceUsd ? (
+      {fabric.supplyType ? (
         <span className="absolute right-2.5 top-2.5 rounded-lg bg-white/90 px-2 py-0.5 text-[10px] font-extrabold text-on-surface shadow-sm backdrop-blur-sm sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]">
-          ${fabric.priceUsd}<span className="font-medium text-on-surface-variant">/{messages.hero.priceHint}</span>
+          {fabric.supplyType}
         </span>
       ) : null}
 
@@ -249,16 +249,13 @@ export function HeroVisualGridClient({
       fabricType: meta.fabricType,
       gsm: meta.gsm,
       widthCm: meta.widthCm,
-      priceUsd: meta.priceUsd,
-      moq: null,
-      supplierName: '',
+      supplyType: meta.supplyType,
+      supplyTypeEn: null,
       imageUrl: ph.src,
       tags: [],
       tagsEn: null,
       color: null,
       colorEn: null,
-      supplyType: null,
-      supplyTypeEn: null,
       shipmentTime: null,
       shipmentTimeEn: null,
       hasVideo: false,

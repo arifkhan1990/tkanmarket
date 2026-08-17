@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils'
 type Props = {
   query: string | undefined
   totalFabrics: number
-  supplierCount: number
   titleCatalog: string
   subtitleCatalog: string
   searchTitlePrefix: string
@@ -29,7 +28,6 @@ type Props = {
 export function CatalogSearchHero({
   query,
   totalFabrics,
-  supplierCount,
   titleCatalog,
   subtitleCatalog,
   searchTitlePrefix,
@@ -71,11 +69,7 @@ export function CatalogSearchHero({
             )}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-on-surface-variant md:text-base">
-            {hasQuery
-              ? searchSubtitle
-                  .replace('{total}', totalFabrics.toLocaleString())
-                  .replace('{suppliers}', supplierCount.toLocaleString())
-              : subtitleCatalog}
+            {hasQuery ? searchSubtitle.replace('{total}', totalFabrics.toLocaleString()) : subtitleCatalog}
           </p>
           <p className="mt-3 text-sm font-medium text-outline">
             {foundPrefix}{' '}

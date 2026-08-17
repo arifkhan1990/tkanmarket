@@ -1,9 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
-import { CheckCircle2, MessageCircle, Package, Warehouse } from 'lucide-react'
+import { CheckCircle2, Package, Warehouse } from 'lucide-react'
 
 import { usePublicOrderTrackingQuery } from '@/hooks/usePublicOrderTracking'
 import { useI18n } from '@/hooks/useI18n'
@@ -88,12 +87,6 @@ export function OrderTrackingPageClient({ orderReference }: { orderReference: st
           <Button type="button" variant="secondary" disabled>
             {p.invoiceSoon}
           </Button>
-          <Button asChild className="bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-md">
-            <Link href={withLocaleUrl(`/suppliers/${d.supplier.slug}`, locale)}>
-              <MessageCircle className="mr-2 h-4 w-4" aria-hidden />
-              {p.contactSupplier}
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -152,36 +145,6 @@ export function OrderTrackingPageClient({ orderReference }: { orderReference: st
         </section>
 
         <div className="space-y-6 lg:col-span-4">
-          <div className="rounded-[2rem] border border-outline/10 bg-surface-container-low p-6">
-            <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant">{p.supplierTitle}</h3>
-            <div className="flex items-center gap-4">
-              <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-surface-container-high shadow">
-                {d.supplier.logo_url ? (
-                  <Image
-                    src={d.supplier.logo_url}
-                    alt=""
-                    fill
-                    className="object-cover"
-                    sizes="56px"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center font-heading font-bold text-primary">
-                    {d.supplier.name.slice(0, 1)}
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="font-heading font-bold text-on-surface">{d.supplier.name}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {[d.supplier.city, d.supplier.country].filter(Boolean).join(', ')}
-                </p>
-              </div>
-            </div>
-            <Button asChild variant="outline" className="mt-4 w-full">
-              <Link href={withLocaleUrl(`/suppliers/${d.supplier.slug}`, locale)}>{p.viewProfile}</Link>
-            </Button>
-          </div>
-
           <div className="rounded-[2rem] border border-outline/10 bg-surface-container-lowest p-6 shadow-sm">
             <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
               <Warehouse className="h-4 w-4 text-primary-container" aria-hidden />

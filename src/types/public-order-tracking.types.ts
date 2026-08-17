@@ -9,15 +9,6 @@ export interface PublicOrderTrackingTimelineStep {
   progressPercent: number | null
 }
 
-export interface PublicOrderTrackingSupplier {
-  id: number
-  name: string
-  slug: string
-  city: string | null
-  country: string
-  logo_url: string | null
-}
-
 export interface PublicOrderTrackingManifestLine {
   sku: string
   title: string
@@ -34,7 +25,6 @@ export interface PublicOrderTrackingResponse {
   total_meters: number
   estimated_value_usd: number | null
   ordered_at: string
-  supplier: PublicOrderTrackingSupplier
   timeline: PublicOrderTrackingTimelineStep[]
   manifest_lines: PublicOrderTrackingManifestLine[]
   shipping_summary: {

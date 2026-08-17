@@ -38,7 +38,6 @@ export function Header() {
   const navItems = useMemo(() => {
     return [
       { key: 'catalog', label: t('nav.catalog'), href: '/fabrics' },
-      { key: 'suppliers', label: t('nav.suppliers'), href: '/suppliers' },
       { key: 'blog', label: t('nav.blog'), href: '/blog' },
       { key: 'wishlist', label: t('nav.wishlist'), href: '/wishlist' },
     ].filter((item) => isNavKeyEnabled(item.key))
@@ -74,7 +73,6 @@ export function Header() {
       if (normalized.startsWith('/fabrics/compare')) return false
       return normalized.startsWith('/fabrics')
     }
-    if (href === '/suppliers') return normalized.startsWith('/suppliers')
     if (href === '/blog') return normalized.startsWith('/blog')
     if (href === '/wishlist') return normalized.startsWith('/wishlist')
     if (href === '/fabrics/compare') return normalized.startsWith('/fabrics/compare')

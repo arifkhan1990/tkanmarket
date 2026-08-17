@@ -58,6 +58,7 @@ function coerceSearchParams(sp: SearchParamsRecord) {
     moq_min: sp.moq_min,
     moq_max: sp.moq_max,
     supplier_id: sp.supplier_id,
+    stock_location: sp.stock_location,
     category_slug: sp.category_slug,
     view:
       typeof sp.view === 'string' && (sp.view === 'list' || sp.view === 'grid')
@@ -84,6 +85,13 @@ function catalogMetadataSegments(
   if (material) segments.push(String(material))
   if (filters.fabric_type) {
     segments.push(fabricTypeLabel(m, filters.fabric_type))
+  }
+  if (filters.stock_location) {
+    segments.push(
+      filters.stock_location === 'china'
+        ? m.fabrics.filters.stockLocationChina
+        : m.fabrics.filters.stockLocationMoscow
+    )
   }
   return segments
 }
@@ -195,7 +203,6 @@ async function CatalogResultsAsync({
   ])
 
   const meta = withPagination(result.items, result.total, params.page, params.limit).meta
-  const supplierCount = result.supplierCount ?? 0
   const q = params.q?.trim() ?? ''
   const sr = m.fabrics.searchResults
 
@@ -204,7 +211,6 @@ async function CatalogResultsAsync({
       <CatalogSearchHero
         query={q.length > 0 ? q : undefined}
         totalFabrics={result.total}
-        supplierCount={supplierCount}
         titleCatalog={m.fabrics.catalogTitle}
         subtitleCatalog={m.fabrics.catalogSubtitle}
         searchTitlePrefix={sr.titlePrefix}

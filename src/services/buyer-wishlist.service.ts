@@ -3,7 +3,6 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-o
 import { getDb } from '@/db'
 import { buyerWishlistItems } from '@/db/schema/buyer-wishlist.schema'
 import { fabrics } from '@/db/schema/fabrics.schema'
-import { suppliers } from '@/db/schema/suppliers.schema'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import type {
   BuyerWishlistAddPayload,
@@ -27,12 +26,6 @@ function compositionSummary(composition: FabricCompositionItem[] | null): string
     .filter(Boolean)
     .slice(0, 3)
     .join(', ')
-}
-
-function toNumber(value: string | null): number | null {
-  if (value === null || value === undefined) return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
 }
 
 export class BuyerWishlistService {
@@ -60,8 +53,8 @@ export class BuyerWishlistService {
     /** Only surface fabrics that are still live in the catalog. */
     const fabricVisibleWhere = and(isNull(fabrics.deletedAt), eq(fabrics.status, 'approved'))
 
-    // Run all 5 wishlist queries in parallel — each is an independent statement.
-    const [totalRows, rows, collRows, allCountRows, priceSumRows] = await Promise.all([
+    // Run all 4 wishlist queries in parallel — each is an independent statement.
+    const [totalRows, rows, collRows, allCountRows] = await Promise.all([
       db
         .select({ total: count() })
         .from(buyerWishlistItems)
@@ -76,15 +69,11 @@ export class BuyerWishlistService {
           titleRu: fabrics.titleRu,
           sku: fabrics.sku,
           images: fabrics.images,
-          priceUsd: fabrics.priceUsd,
-          moq: fabrics.moq,
           composition: fabrics.composition,
-          supplierName: suppliers.name,
           collectionLabel: buyerWishlistItems.collectionLabel
         })
         .from(buyerWishlistItems)
         .innerJoin(fabrics, eq(buyerWishlistItems.fabricId, fabrics.id))
-        .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
         .where(and(where, fabricVisibleWhere))
         .orderBy(desc(buyerWishlistItems.createdAt))
         .limit(params.limit)
@@ -104,12 +93,6 @@ export class BuyerWishlistService {
         .select({ c: count() })
         .from(buyerWishlistItems)
         .innerJoin(fabrics, eq(buyerWishlistItems.fabricId, fabrics.id))
-        .where(and(eq(buyerWishlistItems.userId, userId), isNull(buyerWishlistItems.deletedAt), fabricVisibleWhere)),
-
-      db
-        .select({ s: sql<string>`coalesce(sum(${fabrics.priceUsd}), '0')` })
-        .from(buyerWishlistItems)
-        .innerJoin(fabrics, eq(buyerWishlistItems.fabricId, fabrics.id))
         .where(and(eq(buyerWishlistItems.userId, userId), isNull(buyerWishlistItems.deletedAt), fabricVisibleWhere))
     ])
 
@@ -122,9 +105,6 @@ export class BuyerWishlistService {
       titleRu: r.titleRu,
       sku: r.sku ?? null,
       imageUrl: firstImageUrl(r.images ?? null),
-      supplierName: r.supplierName,
-      priceUsd: toNumber(r.priceUsd === null ? null : String(r.priceUsd)),
-      moq: r.moq ?? null,
       collectionLabel: r.collectionLabel ?? null,
       materialSummary: compositionSummary(r.composition ?? null)
     }))
@@ -134,7 +114,6 @@ export class BuyerWishlistService {
       .map((x) => ({ label: String(x.label), count: x.c }))
 
     const itemCount = allCountRows[0]?.c ?? 0
-    const estimatedValueUsd = toNumber(priceSumRows[0]?.s ?? null)
 
     return {
       total,
@@ -142,8 +121,7 @@ export class BuyerWishlistService {
         items,
         collections,
         totals: {
-          itemCount,
-          estimatedValueUsd
+          itemCount
         }
       }
     }

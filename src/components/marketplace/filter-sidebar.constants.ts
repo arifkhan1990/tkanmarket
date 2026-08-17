@@ -1,6 +1,6 @@
 import type { FabricQueryParams } from '@/lib/validations/fabric.validation'
 
-export type SectionKey = 'material' | 'catalogCategory' | 'type' | 'gsm' | 'width' | 'moq' | 'price'
+export type SectionKey = 'material' | 'catalogCategory' | 'type' | 'gsm' | 'width' | 'moq' | 'price' | 'stockLocation'
 
 export const fabricTypeOptions: Array<{ value: string; label: string }> = [
   { value: 'knit', label: 'knit' },

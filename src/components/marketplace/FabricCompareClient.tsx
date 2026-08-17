@@ -4,7 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Banknote, FlaskConical, GitCompare, Ruler, ShoppingBasket, Trash2, Weight, X } from 'lucide-react'
+import { FlaskConical, GitCompare, Ruler, Trash2, Weight, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -227,22 +227,6 @@ export function FabricCompareClient({
             {items.map((f) => (
               <div key={f.id} className="border-l border-surface-container p-6 text-sm text-on-surface">
                 {f.widthCm != null ? `${f.widthCm} cm` : '—'}
-              </div>
-            ))}
-          </CompareRow>
-
-          <CompareRow gridTemplate={gridTemplate} label={compare.rowMoq} icon={ShoppingBasket}>
-            {items.map((f) => (
-              <div key={f.id} className="border-l border-surface-container p-6 text-sm text-on-surface">
-                {f.moq != null ? String(f.moq) : '—'}
-              </div>
-            ))}
-          </CompareRow>
-
-          <CompareRow gridTemplate={gridTemplate} label={compare.rowPrice} icon={Banknote}>
-            {items.map((f) => (
-              <div key={f.id} className="border-l border-surface-container p-6">
-                <span className="font-mono text-lg font-bold text-primary">{f.priceUsd ? `$${f.priceUsd}` : '—'}</span>
               </div>
             ))}
           </CompareRow>

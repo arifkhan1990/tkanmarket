@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 're
 import {
   Activity,
   BadgeCheck,
-  Eye,
   Factory,
   Globe,
   Layers,
@@ -616,19 +615,13 @@ export function SupplierDetailClient({ slug }: { slug: string }) {
                         <p className="line-clamp-2 text-sm font-bold text-on-surface group-hover:text-primary">
                           {f.title}
                         </p>
-                        <div className="flex items-center justify-between gap-2 text-xs text-on-surface-variant">
-                          {f.sku ? (
+                        {f.sku ? (
+                          <div className="flex items-center justify-between gap-2 text-xs text-on-surface-variant">
                             <span className="truncate">
                               {m.skuLabel}: {f.sku}
                             </span>
-                          ) : (
-                            <span />
-                          )}
-                          <span className="inline-flex shrink-0 items-center gap-1 font-semibold">
-                            <Eye className="h-3.5 w-3.5" aria-hidden />
-                            {m.viewsCount.replace('{count}', String(f.views_count))}
-                          </span>
-                        </div>
+                          </div>
+                        ) : null}
                       </div>
                     </Link>
                   ))}

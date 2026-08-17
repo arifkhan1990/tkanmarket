@@ -3,7 +3,6 @@ import { and, eq, isNull } from 'drizzle-orm'
 
 import { getDb } from '@/db'
 import { fabrics } from '@/db/schema/fabrics.schema'
-import { suppliers } from '@/db/schema/suppliers.schema'
 import { getPublicSiteUrl } from '@/lib/utils/seo'
 import { DEFAULT_LOCALE, LOCALES, type Locale } from '@/types/i18n.types'
 
@@ -49,7 +48,6 @@ const STATIC_PATHS: Array<{
   { path: '/', changeFrequency: 'weekly', priority: 1.0 },
   { path: '/fabrics', changeFrequency: 'daily', priority: 0.8 },
   { path: '/fabrics/compare', changeFrequency: 'weekly', priority: 0.65 },
-  { path: '/suppliers', changeFrequency: 'daily', priority: 0.8 },
   { path: '/about', changeFrequency: 'weekly', priority: 0.6 },
   { path: '/blog', changeFrequency: 'weekly', priority: 0.55 },
   { path: '/bulk-inquiry', changeFrequency: 'monthly', priority: 0.5 },
@@ -71,16 +69,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const db = getDb()
-    const [fabricRows, supplierRows] = await Promise.all([
-      db
-        .select({ slug: fabrics.slug, updatedAt: fabrics.updatedAt })
-        .from(fabrics)
-        .where(and(isNull(fabrics.deletedAt), eq(fabrics.status, 'approved'))),
-      db
-        .select({ slug: suppliers.slug, updatedAt: suppliers.updatedAt })
-        .from(suppliers)
-        .where(isNull(suppliers.deletedAt)),
-    ])
+    const fabricRows = await db
+      .select({ slug: fabrics.slug, updatedAt: fabrics.updatedAt })
+      .from(fabrics)
+      .where(and(isNull(fabrics.deletedAt), eq(fabrics.status, 'approved')))
 
     const fabricPages: MetadataRoute.Sitemap = LOCALES.flatMap((locale) =>
       fabricRows.map((r) =>
@@ -92,17 +84,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       )
     )
 
-    const supplierPages: MetadataRoute.Sitemap = LOCALES.flatMap((locale) =>
-      supplierRows.map((r) =>
-        entry(baseUrl, locale, `/suppliers/${r.slug}`, {
-          lastModified: r.updatedAt ?? now,
-          changeFrequency: 'weekly',
-          priority: 0.7,
-        })
-      )
-    )
-
-    return [...staticPages, ...fabricPages, ...supplierPages]
+    return [...staticPages, ...fabricPages]
   } catch {
     return staticPages
   }

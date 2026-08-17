@@ -2,7 +2,6 @@ import { and, eq, isNull } from 'drizzle-orm'
 
 import { getDb } from '@/db'
 import { bulkOrders } from '@/db/schema/bulk-orders.schema'
-import { suppliers } from '@/db/schema/suppliers.schema'
 import { NotFoundError } from '@/lib/errors'
 import type {
   PublicOrderTrackingResponse,
@@ -112,17 +111,10 @@ export class PublicOrderTrackingService {
         status: bulkOrders.status,
         totalMeters: bulkOrders.totalMeters,
         estimatedValueUsd: bulkOrders.estimatedValueUsd,
-        orderedAt: bulkOrders.orderedAt,
-        supplierId: suppliers.id,
-        supplierName: suppliers.name,
-        supplierSlug: suppliers.slug,
-        supplierCity: suppliers.city,
-        supplierCountry: suppliers.country,
-        supplierLogo: suppliers.logoUrl
+        orderedAt: bulkOrders.orderedAt
       })
       .from(bulkOrders)
-      .innerJoin(suppliers, eq(bulkOrders.supplierId, suppliers.id))
-      .where(and(eq(bulkOrders.orderReference, ref), isNull(bulkOrders.deletedAt), isNull(suppliers.deletedAt)))
+      .where(and(eq(bulkOrders.orderReference, ref), isNull(bulkOrders.deletedAt)))
       .limit(1)
 
     const row = rows[0]
@@ -145,14 +137,6 @@ export class PublicOrderTrackingService {
       total_meters: Number.isFinite(totalMeters) ? totalMeters : 0,
       estimated_value_usd: estimated,
       ordered_at: row.orderedAt.toISOString(),
-      supplier: {
-        id: row.supplierId,
-        name: row.supplierName,
-        slug: row.supplierSlug,
-        city: row.supplierCity,
-        country: row.supplierCountry,
-        logo_url: row.supplierLogo
-      },
       timeline,
       manifest_lines: [
         {

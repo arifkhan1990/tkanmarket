@@ -245,6 +245,10 @@ export const zhMessages = {
       width: '门幅',
       clear: '清除',
       moq: 'MOQ',
+      stockLocation: '现货',
+      stockLocationAny: '全部',
+      stockLocationChina: '中国现货',
+      stockLocationMoscow: '莫斯科现货',
       moqRanges: {
         lt50: '< 50m',
         between50And200: '50–200m',
@@ -266,7 +270,7 @@ export const zhMessages = {
     viewSimilar: '查看相似面料',
     searchResults: {
       titlePrefix: '搜索结果：',
-      subtitle: '找到 {total} 种面料，来自 {suppliers} 家供应商。',
+      subtitle: '找到 {total} 种面料。',
       refinePlaceholder: '优化搜索…',
       refineSubmit: '应用',
       chipAll: '全部',
@@ -1022,7 +1026,7 @@ export const zhMessages = {
     ctaTitle: '对条款有疑问？',
     ctaLead: '支持团队可将法律与供应商相关问题转交对应同事。',
     ctaContact: '联系支持',
-    ctaSupplier: '供应商资源',
+    ctaCatalog: '浏览目录',
   },
   contactPage: {
     metaTitle: 'TkanMarket | 联系我们',

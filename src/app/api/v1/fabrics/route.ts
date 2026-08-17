@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       moq_min: searchParams.get('moq_min') ?? undefined,
       moq_max: searchParams.get('moq_max') ?? undefined,
       supplier_id: searchParams.get('supplier_id') ?? undefined,
+      stock_location: searchParams.get('stock_location') ?? undefined,
       category_slug: searchParams.get('category_slug') ?? undefined,
       view: searchParams.get('view') ?? undefined
     }
@@ -40,8 +41,7 @@ export async function GET(req: NextRequest) {
     const params = FabricQuerySchema.parse(raw)
     const result = await FabricService.list(params)
 
-    const baseMeta = withPagination(result.items, result.total, params.page, params.limit).meta
-    const meta = { ...baseMeta, supplierCount: result.supplierCount }
+    const meta = withPagination(result.items, result.total, params.page, params.limit).meta
     return apiSuccess(result.items, meta)
   } catch (err) {
     return toApiErrorResponse(err)

@@ -12,17 +12,7 @@ export interface PublicSearchFabric {
   slug: string
   sku: string | null
   imageUrl: string | null
-  supplierName: string | null
   fabricType: string | null
-}
-
-export interface PublicSearchSupplier {
-  id: number
-  name: string
-  slug: string
-  verified: boolean
-  logoUrl: string | null
-  location: string | null
 }
 
 export interface PublicSearchCategory {
@@ -40,13 +30,11 @@ export interface PublicSearchFabricType {
 export interface PublicSearchResponse {
   query: string
   fabrics: PublicSearchFabric[]
-  suppliers: PublicSearchSupplier[]
   categories: PublicSearchCategory[]
   fabricTypes: PublicSearchFabricType[]
   trending: PublicSearchCategory[]
   totals: {
     fabrics: number
-    suppliers: number
     categories: number
   }
 }

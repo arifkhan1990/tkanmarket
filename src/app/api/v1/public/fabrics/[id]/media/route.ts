@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
 import { getDb } from '@/db'
+import { fabrics } from '@/db/schema/fabrics.schema'
 import { generatedMedia } from '@/db/schema/generated-media.schema'
 import { resolveR2Url } from '@/lib/storage/r2'
 import { and, count, eq, isNull } from 'drizzle-orm'
@@ -20,13 +21,24 @@ export async function GET(
       return apiError('VALIDATION_ERROR', 'Invalid fabric ID', 400)
     }
 
+    const db = getDb()
+
+    // Only publicly approved, non-deleted fabrics may expose their media.
+    const fabricRow = await db
+      .select({ id: fabrics.id })
+      .from(fabrics)
+      .where(and(eq(fabrics.id, fabricId), isNull(fabrics.deletedAt), eq(fabrics.status, 'approved')))
+      .limit(1)
+
+    if (fabricRow.length === 0) {
+      return apiError('NOT_FOUND', 'Fabric not found', 404)
+    }
+
     const { searchParams } = new URL(req.url)
     const type = searchParams.get('type')
     const page = Math.max(1, Number(searchParams.get('page')) || 1)
     const limit = Math.min(50, Math.max(1, Number(searchParams.get('limit')) || 20))
     const offset = (page - 1) * limit
-
-    const db = getDb()
 
     const whereConditions = [
       eq(generatedMedia.fabricId, fabricId),

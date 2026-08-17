@@ -70,7 +70,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
     if (current.fabricType) bits.push(current.fabricType)
     if (current.gsm) bits.push(`${current.gsm} ${messages.fabricCard.gsmUnit}`)
     if (current.widthCm) bits.push(`${current.widthCm} cm`)
-    if (current.supplierName) bits.push(current.supplierName)
+    if (current.color) bits.push(current.color)
     return bits.join(' • ')
   }, [current, messages.fabricCard.gsmUnit])
 
@@ -186,7 +186,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
               item.fabricType,
               item.gsm ? `${item.gsm} ${messages.fabricCard.gsmUnit}` : null,
               item.widthCm ? `${item.widthCm} cm` : null,
-              item.supplierName || null,
+              item.color || null,
             ].filter(Boolean).join(' • ')
 
             return (

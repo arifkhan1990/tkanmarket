@@ -85,7 +85,8 @@ export function FilterSidebar(props: {
     gsm: true,
     price: true,
     width: true,
-    moq: true
+    moq: true,
+    stockLocation: true
   })
 
   const categoryMap = useMemo(() => {
@@ -378,6 +379,51 @@ export function FilterSidebar(props: {
           >
             {messages.fabrics.filters.clear}
           </Button>
+        </div>
+      </Section>
+
+      <Section
+        title={messages.fabrics.filters.stockLocation}
+        open={open.stockLocation}
+        onToggle={() => setOpen((v) => ({ ...v, stockLocation: !v.stockLocation }))}
+      >
+        <div className="space-y-2">
+          <label className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-surface-container-low">
+            <input
+              type="radio"
+              name="stock-location"
+              checked={props.currentFilters.stock_location === undefined}
+              onChange={() => {
+                const sp = buildNextSearchParams(searchParams, [{ key: 'stock_location', value: null }])
+                go(sp)
+              }}
+            />
+            <span className="text-sm font-bold text-on-surface-variant">
+              {messages.fabrics.filters.stockLocationAny}
+            </span>
+          </label>
+          {(
+            [
+              { value: 'china', label: messages.fabrics.filters.stockLocationChina },
+              { value: 'moscow', label: messages.fabrics.filters.stockLocationMoscow }
+            ] as const
+          ).map((opt) => {
+            const checked = props.currentFilters.stock_location === opt.value
+            return (
+              <label key={opt.value} className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-surface-container-low">
+                <input
+                  type="radio"
+                  name="stock-location"
+                  checked={checked}
+                  onChange={() => {
+                    const sp = buildNextSearchParams(searchParams, [{ key: 'stock_location', value: opt.value }])
+                    go(sp)
+                  }}
+                />
+                <span className="text-sm font-bold text-on-surface-variant">{opt.label}</span>
+              </label>
+            )
+          })}
         </div>
       </Section>
 

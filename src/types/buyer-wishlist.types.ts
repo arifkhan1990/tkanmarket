@@ -5,9 +5,6 @@ export interface BuyerWishlistItemRow {
   titleRu: string
   sku: string | null
   imageUrl: string | null
-  supplierName: string
-  priceUsd: number | null
-  moq: number | null
   collectionLabel: string | null
   materialSummary: string | null
 }
@@ -17,7 +14,6 @@ export interface BuyerWishlistListResponse {
   collections: { label: string; count: number }[]
   totals: {
     itemCount: number
-    estimatedValueUsd: number | null
   }
 }
 

@@ -15,7 +15,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  BadgeCheck,
   ChevronDown,
   Clock,
   Flame,
@@ -36,8 +35,7 @@ import type {
   PublicSearchCategory,
   PublicSearchFabric,
   PublicSearchFabricType,
-  PublicSearchResponse,
-  PublicSearchSupplier
+  PublicSearchResponse
 } from '@/types/public-search.types'
 
 /* ────────────────────────────── constants ────────────────────────────── */
@@ -47,7 +45,7 @@ const RECENT_MAX = 6
 const PLACEHOLDER_INTERVAL_MS = 3200
 const PLACEHOLDER_FADE_MS = 400
 
-type SearchScope = 'all' | 'fabrics' | 'suppliers'
+type SearchScope = 'all' | 'fabrics'
 
 type NavbarSearchProps = {
   variant?: 'pill' | 'full'
@@ -60,7 +58,6 @@ type FlatRow =
   | { kind: 'recent'; value: string }
   | { kind: 'trending'; value: PublicSearchCategory }
   | { kind: 'fabric'; value: PublicSearchFabric }
-  | { kind: 'supplier'; value: PublicSearchSupplier }
   | { kind: 'category'; value: PublicSearchCategory }
   | { kind: 'type'; value: PublicSearchFabricType }
   | { kind: 'all'; value: string }
@@ -146,9 +143,6 @@ function buildFlatRows(
       for (const ft of data.fabricTypes) rows.push({ kind: 'type', value: ft })
       for (const f of data.fabrics) rows.push({ kind: 'fabric', value: f })
     }
-    if (scope === 'all' || scope === 'suppliers') {
-      for (const s of data.suppliers) rows.push({ kind: 'supplier', value: s })
-    }
     if (scope === 'all') {
       for (const c of data.categories) rows.push({ kind: 'category', value: c })
     }
@@ -214,7 +208,7 @@ export const NavbarSearch = forwardRef<HTMLInputElement, NavbarSearchProps>(func
   )
 
   const scopeLabels: Record<SearchScope, string> = useMemo(
-    () => ({ all: m.scopeAll, fabrics: m.scopeFabrics, suppliers: m.scopeSuppliers }),
+    () => ({ all: m.scopeAll, fabrics: m.scopeFabrics }),
     [m]
   )
 
@@ -306,12 +300,6 @@ export const NavbarSearch = forwardRef<HTMLInputElement, NavbarSearchProps>(func
           saveRecentSearch(row.value.title)
           setRecent(loadRecentSearches())
           router.push(withLocaleUrl(`/fabrics/${row.value.slug}`, locale))
-          closeAndNavigate()
-          return
-        case 'supplier':
-          saveRecentSearch(row.value.name)
-          setRecent(loadRecentSearches())
-          router.push(withLocaleUrl(`/suppliers/${row.value.slug}`, locale))
           closeAndNavigate()
           return
         case 'type':
@@ -414,7 +402,7 @@ export const NavbarSearch = forwardRef<HTMLInputElement, NavbarSearchProps>(func
       </button>
       {scopeOpen ? (
         <div className="absolute left-0 top-full z-50 mt-1.5 min-w-[8rem] overflow-hidden rounded-xl border border-outline/15 bg-surface-container-lowest shadow-xl">
-          {(['all', 'fabrics', 'suppliers'] as const).map((s) => (
+          {(['all', 'fabrics'] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -432,10 +420,8 @@ export const NavbarSearch = forwardRef<HTMLInputElement, NavbarSearchProps>(func
             >
               {s === 'all' ? (
                 <Search className="h-3.5 w-3.5" aria-hidden />
-              ) : s === 'fabrics' ? (
-                <Package className="h-3.5 w-3.5" aria-hidden />
               ) : (
-                <BadgeCheck className="h-3.5 w-3.5" aria-hidden />
+                <Package className="h-3.5 w-3.5" aria-hidden />
               )}
               <span>{scopeLabels[s]}</span>
             </button>
@@ -449,13 +435,8 @@ export const NavbarSearch = forwardRef<HTMLInputElement, NavbarSearchProps>(func
 
   const scopeTabs = hasQuery && totals ? (
     <div className="flex items-center gap-1 border-b border-outline/10 px-3 py-2">
-      {(['all', 'fabrics', 'suppliers'] as const).map((s) => {
-        const count =
-          s === 'all'
-            ? totals.fabrics + totals.suppliers + totals.categories
-            : s === 'fabrics'
-              ? totals.fabrics
-              : totals.suppliers
+      {(['all', 'fabrics'] as const).map((s) => {
+        const count = s === 'all' ? totals.fabrics + totals.categories : totals.fabrics
         return (
           <button
             key={s}
@@ -688,7 +669,6 @@ type RowsListProps = {
     sectionRecent: string
     sectionTrending: string
     sectionFabrics: string
-    sectionSuppliers: string
     sectionCategories: string
     sectionFabricTypes: string
     clearRecent: string
@@ -733,11 +713,9 @@ function RowsList({
                 ? messages.sectionFabricTypes
                 : row.kind === 'fabric'
                   ? messages.sectionFabrics
-                  : row.kind === 'supplier'
-                    ? messages.sectionSuppliers
-                    : row.kind === 'category'
-                      ? messages.sectionCategories
-                      : '',
+                  : row.kind === 'category'
+                    ? messages.sectionCategories
+                    : '',
         rows: []
       })
     }
@@ -949,57 +927,7 @@ function Row({
           </p>
           <p className="mt-0.5 truncate text-xs text-on-surface-variant">
             {f.sku ? `${messages.sku}: ${f.sku}` : f.fabricType ?? ''}
-            {f.supplierName ? ` · ${f.supplierName}` : ''}
           </p>
-        </div>
-        {isActive ? (
-          <kbd className="hidden shrink-0 rounded border border-outline/20 bg-surface-container px-1.5 py-0.5 text-[10px] font-bold text-on-surface-variant sm:inline-block" aria-hidden>↵</kbd>
-        ) : null}
-      </Link>
-    )
-  }
-
-  if (row.kind === 'supplier') {
-    const s = row.value
-    return (
-      <Link
-        href="#"
-        onClick={(e) => {
-          e.preventDefault()
-          onClick()
-        }}
-        onMouseEnter={onMouseEnter}
-        id={id}
-        role="option"
-        aria-selected={isActive}
-        className={baseClass}
-      >
-        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-container-high shadow-sm ring-1 ring-outline/10">
-          {s.logoUrl ? (
-            <Image
-              src={s.logoUrl}
-              alt=""
-              fill
-              sizes="48px"
-              className="object-contain p-1"
-              unoptimized={isRemoteImageSrc(s.logoUrl)}
-            />
-          ) : (
-            <span className="text-base font-black text-on-surface-variant" aria-hidden>
-              {s.name.slice(0, 1).toUpperCase()}
-            </span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
-            <HighlightedText text={s.name} query={query} />
-            {s.verified ? (
-              <BadgeCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-            ) : null}
-          </p>
-          {s.location ? (
-            <p className="mt-0.5 truncate text-xs text-on-surface-variant">{s.location}</p>
-          ) : null}
         </div>
         {isActive ? (
           <kbd className="hidden shrink-0 rounded border border-outline/20 bg-surface-container px-1.5 py-0.5 text-[10px] font-bold text-on-surface-variant sm:inline-block" aria-hidden>↵</kbd>

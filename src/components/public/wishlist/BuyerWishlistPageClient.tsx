@@ -178,16 +178,6 @@ export function BuyerWishlistPageClient() {
           </Button>
         </div>
       ) : null}
-
-      {items.length > 0 && totals !== undefined && totals.estimatedValueUsd !== null ? (
-        <aside className="mt-12 rounded-[2rem] border border-outline/10 bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-on-primary">
-          <h3 className="text-lg font-bold">{w.portfolioTitle}</h3>
-          <p className="mt-2 text-sm text-on-primary/85">{w.portfolioDescription}</p>
-          <p className="mt-6 font-mono text-3xl font-black">
-            ${totals.estimatedValueUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </aside>
-      ) : null}
     </PublicPageShell>
   )
 }

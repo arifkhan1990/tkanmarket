@@ -260,6 +260,10 @@ export const ruMessages = {
       width: 'Ширина',
       clear: 'Очистить',
       moq: 'МИН. ЗАКАЗ',
+      stockLocation: 'В наличии',
+      stockLocationAny: 'Любое наличие',
+      stockLocationChina: 'В наличии в Китае',
+      stockLocationMoscow: 'В наличии в Москве',
       moqRanges: {
         lt50: '< 50м',
         between50And200: '50–200м',
@@ -281,7 +285,7 @@ export const ruMessages = {
     viewSimilar: 'Посмотреть похожие ткани',
     searchResults: {
       titlePrefix: 'Результаты по запросу',
-      subtitle: 'Найдено {total} тканей от {suppliers} поставщиков.',
+      subtitle: 'Найдено {total} тканей.',
       refinePlaceholder: 'Уточнить поиск…',
       refineSubmit: 'Применить',
       chipAll: 'Все',
@@ -1050,7 +1054,7 @@ export const ruMessages = {
     ctaTitle: 'Вопросы по условиям?',
     ctaLead: 'Поддержка направит юридические и поставщические запросы нужным отделам.',
     ctaContact: 'Связаться с поддержкой',
-    ctaSupplier: 'Материалы для поставщиков',
+    ctaCatalog: 'В каталог',
   },
   contactPage: {
     metaTitle: 'TkanMarket | Контакты',

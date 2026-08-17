@@ -4,7 +4,6 @@ import { getDb } from '@/db'
 import { adminSettings } from '@/db/schema/admin-settings.schema'
 import { fabrics } from '@/db/schema/fabrics.schema'
 import { generatedMedia } from '@/db/schema/generated-media.schema'
-import { suppliers } from '@/db/schema/suppliers.schema'
 import {
   DEFAULT_HERO_CONFIG,
   HERO_BOTTOM_CARDS_LIMIT,
@@ -199,14 +198,10 @@ export class HeroSectionService {
         fabricType: fabrics.fabricType,
         gsm: fabrics.gsm,
         widthCm: fabrics.widthCm,
-        priceUsd: fabrics.priceUsd,
-        moq: fabrics.moq,
         tags: fabrics.tags,
         tagsEn: fabrics.tagsEn,
         images: fabrics.images,
         sku: fabrics.sku,
-        socialScore: fabrics.socialScore,
-        supplierName: suppliers.name,
         color: fabrics.color,
         colorEn: fabrics.colorEn,
         supplyType: fabrics.supplyType,
@@ -215,7 +210,6 @@ export class HeroSectionService {
         shipmentTimeEn: fabrics.shipmentTimeEn
       })
       .from(fabrics)
-      .innerJoin(suppliers, eq(fabrics.supplierId, suppliers.id))
       .where(and(inArray(fabrics.id, uniqueIds), isNull(fabrics.deletedAt), eq(fabrics.status, 'approved')))
 
     const videoRows = await db
@@ -252,14 +246,10 @@ export class HeroSectionService {
         fabricType: r.fabricType,
         gsm: r.gsm,
         widthCm: r.widthCm,
-        priceUsd: r.priceUsd ? String(r.priceUsd) : null,
-        moq: r.moq,
-        supplierName: r.supplierName,
         imageUrl: r.images?.[0] ?? null,
         tags: r.tags ?? [],
         tagsEn: r.tagsEn ?? null,
         sku: r.sku,
-        socialScore: r.socialScore,
         color: r.color ?? null,
         colorEn: r.colorEn ?? null,
         supplyType: r.supplyType ?? null,

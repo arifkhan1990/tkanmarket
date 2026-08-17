@@ -84,16 +84,13 @@ export function HeroProductRailClient(props: { items: FabricSummary[] }) {
 
                   <div className="p-3">
                     <div className="text-[11px] font-semibold uppercase tracking-widest text-on-surface-variant">
-                      {f.supplierName}
+                      {f.fabricType ?? messages.fabrics.filters.types.other}
                     </div>
                     <div className="mt-1 line-clamp-2 text-sm font-extrabold text-on-surface group-hover:text-primary">
                       {getLocalizedFabricTitle(f, locale)}
                     </div>
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="text-sm font-extrabold text-primary">
-                        {f.priceUsd ? `$${f.priceUsd}` : '—'}
-                        <span className="ml-1 text-[11px] font-semibold text-on-surface-variant">/{messages.hero.priceHint}</span>
-                      </div>
+                      <div className="text-sm font-extrabold text-primary">{f.color ?? '—'}</div>
                       <span className="rounded-md bg-surface-container-high px-2 py-1 text-[11px] font-semibold text-on-surface-variant">
                         {f.gsm ? `${f.gsm} ${messages.fabricCard.gsmUnit}` : '—'}
                       </span>
