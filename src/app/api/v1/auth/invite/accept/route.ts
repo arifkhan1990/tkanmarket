@@ -1,7 +1,9 @@
+import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { apiSuccess } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
+import { enforceRateLimit } from '@/lib/rate-limit/rate-limit'
 import { AdminInviteService } from '@/services/admin-invite.service'
 
 const BodySchema = z.object({
@@ -10,8 +12,9 @@ const BodySchema = z.object({
   password: z.string().min(8).max(200)
 })
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    await enforceRateLimit(req, { limit: 10, windowSeconds: 900, routeKey: 'auth:invite:accept' })
     const json: unknown = await req.json()
     const body = BodySchema.parse(json)
     await AdminInviteService.acceptInvite({

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
-import { requireAdminSession } from '@/lib/auth/require-admin'
+import { requireAdminOnlySession, requireAdminSession } from '@/lib/auth/require-admin'
 import { apiSuccess } from '@/lib/utils/api-response'
 import { SystemConsoleService } from '@/services/admin/system-console.service'
 import type { NotificationMatrixRow } from '@/types/system-console.types'
@@ -36,7 +36,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAdminSession()
+    const session = await requireAdminOnlySession()
     const body = await req.json()
     const input = UpdateSchema.parse(body)
     const matrix = input.notificationMatrix as NotificationMatrixRow[] | undefined

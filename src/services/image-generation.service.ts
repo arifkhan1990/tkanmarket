@@ -6,6 +6,7 @@ import { generatedMedia } from '@/db/schema/generated-media.schema'
 import { fabricActivityLog } from '@/db/schema/fabric-activity-log.schema'
 import { generateGeminiImage } from '@/lib/google/client'
 import { filterFabricGalleryImageUrls } from '@/lib/fabric-gallery-image-urls'
+import { isSsrSafeUrl } from '@/lib/http/ssrf'
 import { uploadFromUrl, uploadBuffer } from '@/lib/storage/r2'
 import { logger } from '@/lib/logger'
 import { ValidationError } from '@/lib/errors'
@@ -36,6 +37,9 @@ export async function fetchImagesAsInlineData(imageUrls: string[] | null): Promi
         results.push(url)
         continue
       }
+
+      // SSRF guard: reject private/metadata/loopback hosts before fetching.
+      if (!(await isSsrSafeUrl(url))) continue
 
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 10_000)

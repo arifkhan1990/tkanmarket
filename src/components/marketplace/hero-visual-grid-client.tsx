@@ -93,6 +93,7 @@ function VideoCard({ embedId }: { embedId: string | null }) {
                 alt={m.hero.bentoVideoPosterAlt}
                 fill
                 priority
+                fetchPriority="high"
                 loading="eager"
                 className="object-cover transition-transform duration-700 ease-out group-hover/video:scale-[1.03]"
                 sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 380px"
@@ -105,6 +106,7 @@ function VideoCard({ embedId }: { embedId: string | null }) {
             alt={m.hero.bentoVideoPosterAlt}
             fill
             priority
+            fetchPriority="high"
             loading="eager"
             className="object-cover transition-transform duration-700 ease-out group-hover/video:scale-[1.03]"
             sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 380px"

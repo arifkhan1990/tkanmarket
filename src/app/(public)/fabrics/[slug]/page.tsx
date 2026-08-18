@@ -12,6 +12,7 @@ import { ProductInfoPanel } from '@/components/marketplace/ProductInfoPanel'
 import { ProductTabs } from '@/components/marketplace/ProductTabs'
 import { RelatedFabrics } from '@/components/marketplace/RelatedFabrics'
 import { generateFabricJsonLdForLocale, generateFabricMetadataForLocale } from '@/lib/utils/seo'
+import { serializeJsonLd } from '@/lib/utils/serialize-json'
 import { getServerLocale } from '@/lib/i18n/get-locale'
 import { withLocaleUrl } from '@/lib/i18n/locale-path'
 import { getLocalizedFabricTitle } from '@/lib/i18n/localized-fabric'
@@ -77,7 +78,7 @@ export default async function FabricDetailPage({ params }: { params: Promise<{ s
 
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(generateFabricJsonLdForLocale(fabric, locale)) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(generateFabricJsonLdForLocale(fabric, locale)) }}
         />
 
         {/*

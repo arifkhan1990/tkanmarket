@@ -6,6 +6,7 @@ import * as React from 'react'
 
 import { useI18n } from '@/hooks/useI18n'
 import { cn } from '@/lib/utils'
+import { serializeJsonLd } from '@/lib/utils/serialize-json'
 
 export interface BreadcrumbItem {
   label: string
@@ -90,7 +91,7 @@ export function Breadcrumb({ items, className }: { items: BreadcrumbItem[]; clas
           })}
         </ol>
       </nav>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
     </>
   )
 }

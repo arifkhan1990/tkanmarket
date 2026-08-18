@@ -7,8 +7,17 @@ import { Toaster } from 'sonner'
 
 import { LocalePreferenceProvider } from '@/lib/i18n/locale-preference-context'
 import type { Locale } from '@/types/i18n.types'
+import type { Messages } from '@/lib/i18n/get-messages'
 
-export function Providers({ children, serverLocale }: { children: ReactNode; serverLocale: Locale }) {
+export function Providers({
+  children,
+  serverLocale,
+  serverMessages
+}: {
+  children: ReactNode
+  serverLocale: Locale
+  serverMessages?: Messages
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -23,7 +32,7 @@ export function Providers({ children, serverLocale }: { children: ReactNode; ser
 
   return (
     <SessionProvider>
-      <LocalePreferenceProvider locale={serverLocale}>
+      <LocalePreferenceProvider locale={serverLocale} messages={serverMessages ?? ({} as Messages)}>
         <QueryClientProvider client={queryClient}>
           {children}
           <Toaster richColors />
@@ -32,4 +41,5 @@ export function Providers({ children, serverLocale }: { children: ReactNode; ser
     </SessionProvider>
   )
 }
+
 

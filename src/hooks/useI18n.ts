@@ -23,7 +23,6 @@ function getByDotPath(obj: Messages, key: MessageKey): string {
 export function useI18n() {
   const pathname = usePathname()
   const pathLocale = getLocaleFromPathname(pathname)
-  /** Set in root layout from `x-locale` (see `src/proxy.ts`). Required when pathname is rewritten and has no `/en` prefix. */
   const serverLocale = useLocalePreference()
   const locale: Locale = pathLocale ?? serverLocale ?? DEFAULT_LOCALE
 
@@ -35,4 +34,5 @@ export function useI18n() {
 
   return { locale, messages, t }
 }
+
 

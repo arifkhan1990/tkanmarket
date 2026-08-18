@@ -91,3 +91,5 @@ TkanMarket-cursor-rules.md
 # local scratch / scratchpads
 test-slug*.ts
 *.scratch.ts
+# generated reports
+LIGHTHOUSE-REPORT.html

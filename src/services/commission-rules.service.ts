@@ -5,7 +5,7 @@ import { bulkOrders } from '@/db/schema/bulk-orders.schema'
 import { commissionRules } from '@/db/schema/commission-rules.schema'
 import type { CommissionRuleDto, CommissionRulesDashboardDto, CommissionTierRow } from '@/types/commission-rules.types'
 
-function formatUsd(n: number): string {
+export function formatUsd(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '$0'
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
   if (n >= 10_000) return `$${Math.round(n / 1000)}K`

@@ -1,4 +1,5 @@
 import { resolveR2Url } from '@/lib/storage/r2'
+import { isSsrSafeUrlLiteral } from '@/lib/http/ssrf-static'
 
 /** Hosts that appear in scraped HTML but are not product photos (analytics, beacons). */
 const FABRIC_GALLERY_IMAGE_HOST_BLOCKLIST = new Set<string>(['stat.made-in-china.com'])
@@ -18,6 +19,9 @@ export function isFabricGalleryImageUrl(url: string): boolean {
   }
 
   if (parsed.protocol !== 'https:') return false
+
+  // Reject non-public hosts (private IPs, metadata, loopback) — SSRF guard.
+  if (!isSsrSafeUrlLiteral(trimmed)) return false
 
   const host = parsed.hostname.toLowerCase()
   if (FABRIC_GALLERY_IMAGE_HOST_BLOCKLIST.has(host)) return false

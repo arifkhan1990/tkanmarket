@@ -23,19 +23,30 @@ const memory = new Map<string, MemoryState>()
 let redisFallbackWarned = false
 
 /**
- * Best-effort client IP for per-IP buckets. Without any header (typical local `next dev`),
- * all traffic shared one `anonymous` key — combine with dev bypass or sensible limits.
+ * Best-effort client IP for per-IP buckets.
+ *
+ * Trusted-proxy headers win: Cloudflare's `cf-connecting-ip` (set only when
+ * behind Cloudflare) and `x-real-ip` (set by nginx/GCP LB) are proxy-verified.
+ * For `x-forwarded-for` we take the LAST entry — the IP appended by the trusted
+ * platform proxy (Cloud Run / App Engine / GCP LB) closest to the app. Clients
+ * can spoof the leading entries of XFF, so trusting the first one lets an
+ * attacker rotate per-IP buckets and bypass limits. Without any header (typical
+ * local `next dev`) all traffic shares one `anonymous` key — combine with the
+ * dev bypass or sensible limits.
  */
 function getIdentifier(req: NextRequest) {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) {
-    const first = xff.split(',')[0]?.trim()
-    if (first) return first
-  }
-  const realIp = req.headers.get('x-real-ip')?.trim()
-  if (realIp) return realIp
   const cf = req.headers.get('cf-connecting-ip')?.trim()
   if (cf) return cf
+
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) {
+    const entries = xff.split(',').map((v) => v.trim()).filter(Boolean)
+    const last = entries[entries.length - 1]
+    if (last) return last
+  }
+
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
   return 'anonymous'
 }
 

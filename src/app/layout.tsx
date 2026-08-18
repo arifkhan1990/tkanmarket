@@ -51,6 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getServerLocale()
+  const messages = getMessages(locale)
 
   return (
     <html
@@ -59,7 +60,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       suppressHydrationWarning
     >
       <body>
-        <Providers serverLocale={locale}>{children}</Providers>
+        <Providers serverLocale={locale} serverMessages={messages}>{children}</Providers>
       </body>
     </html>
   )

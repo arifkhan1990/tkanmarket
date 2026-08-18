@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { apiSuccess, apiError } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
 import { requireAdminSession } from '@/lib/auth/require-admin'
+import { hasExpectedMagicBytes } from '@/lib/utils/file-magic'
 import { AdminRawUploadService } from '@/services/admin-raw-upload.service'
 
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,10 @@ export async function POST(req: NextRequest) {
 
     const fileName = file.name
     const buffer = await file.arrayBuffer()
+
+    if (!hasExpectedMagicBytes(buffer, fileName)) {
+      return apiError('VALIDATION_ERROR', 'File content does not match its extension', 400)
+    }
 
     let fileType = 'EXCEL'
     if (fileName.endsWith('.json')) {

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { apiSuccess } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
 import { requireAdminSession } from '@/lib/auth/require-admin'
+import { hasExpectedMagicBytes } from '@/lib/utils/file-magic'
 import { AdminBulkImportService } from '@/services/admin-bulk-import.service'
 
 export async function POST(req: NextRequest) {
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = await file.arrayBuffer()
+    if (!hasExpectedMagicBytes(buffer, filename)) {
+      return Response.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'File content does not match its extension', statusCode: 400 } }, { status: 400 })
+    }
+
     const result = await AdminBulkImportService.createFromExcel({
       filename,
       buffer,

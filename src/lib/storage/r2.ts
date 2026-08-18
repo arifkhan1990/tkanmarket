@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
+import { isSsrSafeUrl } from '@/lib/http/ssrf'
 import { logger } from '@/lib/logger'
 
 let client: S3Client | null = null
@@ -95,6 +96,11 @@ export async function uploadBuffer(
 
 export async function uploadFromUrl(sourceUrl: string, key: string): Promise<string> {
   const { client: s3, bucket: b, publicBaseUrl: base } = getR2Client()
+
+  // SSRF guard: never fetch private/metadata/loopback hosts.
+  if (!(await isSsrSafeUrl(sourceUrl))) {
+    throw new Error('Refused to fetch unsafe source URL')
+  }
 
   const response = await fetch(sourceUrl)
   if (!response.ok) throw new Error(`Failed to fetch source URL: ${response.status} ${response.statusText}`)

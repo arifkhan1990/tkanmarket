@@ -6,6 +6,7 @@ import { BlogReadingProgress } from '@/components/public/blog/blog-reading-progr
 import { getServerLocale } from '@/lib/i18n/get-locale'
 import { getMessages } from '@/lib/i18n/get-messages'
 import { generateBlogArticleJsonLd } from '@/lib/utils/seo'
+import { serializeJsonLd } from '@/lib/utils/serialize-json'
 import { getPublicBlogPostBySlug, getRelatedPublicBlogPosts } from '@/services/blog.service'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -56,8 +57,8 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         // Server-rendered, never mixed with user input — title/excerpt are
-        // already plain text from the DB and JSON.stringify escapes everything.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        // already plain text from the DB and serializeJsonLd escapes `</script>`.
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }}
       />
       <BlogReadingProgress ariaLabel={m.blog.readingProgressAria} />
       <BlogPostDetailView

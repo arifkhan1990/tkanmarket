@@ -199,7 +199,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
                 <div className={cn('flex h-full max-w-[min(100%,36rem)] flex-col items-start justify-end p-4 pb-[3.5rem] sm:p-6 sm:pb-14 md:max-w-[min(100%,34rem)] md:p-8 md:pb-16', i === safeIndex && 'pointer-events-auto')}>
                   <div>
                     <div
-                      className="inline-flex w-fit items-center gap-2 rounded-md border border-[#b8894a]/50 bg-black/35 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[.12em] text-[#e8c989] shadow-[0_2px_12px_rgba(0,0,0,0.45)] backdrop-blur-[2px]"
+                      className="inline-flex w-fit items-center gap-2 rounded-md border border-[#b8894a]/50 bg-black/20 px-2.5 py-1.5 text-[10px] font-extrabold uppercase tracking-[.12em] text-[#ffffff] shadow-[0_2px_12px_rgba(0,0,0,0.45)] backdrop-blur-[2px]"
                     >
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d4a855] shadow-[0_0_10px_rgba(212,168,85,0.6)]" aria-hidden />
                       {messages.hero.promoBadge}
@@ -397,7 +397,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
 
       <div className="absolute inset-0 flex flex-col justify-end pb-16 pl-8 pr-8 md:pl-12 md:pr-12">
         <div className="max-w-[640px]">
-          <div className="inline-flex items-center gap-2 rounded-md border border-[#b8894a]/40 bg-[#b8894a]/15 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[.14em] text-[#d4a855]">
+          <div className="inline-flex items-center gap-2 rounded-md border border-[#b8894a]/40 bg-[#b8894a]/15 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[.14em] text-[#ffffff]">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d4a855]" aria-hidden />
             {messages.hero.promoBadge}
           </div>
@@ -416,7 +416,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
 
             <Link
               href={href}
-              className="mt-4 block font-heading text-[clamp(2.2rem,5vw,3.6rem)] font-extrabold leading-[1.05] tracking-tight text-white hover:text-[#d4a855] hover:underline"
+              className="mt-4 block font-heading text-[clamp(2.2rem,5vw,3.6rem)] font-extrabold leading-[1.05] tracking-tight text-white hover:text-[#ffffff] hover:underline"
             >
               {getLocalizedFabricTitle(current, locale)}
             </Link>
@@ -432,7 +432,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
               </Link>
               <Link
                 href={withLocaleUrl('/fabrics?sort=created_at_desc', locale)}
-                className="inline-flex h-12 items-center justify-center rounded-md border border-white/25 px-6 text-sm font-semibold text-white transition-colors hover:border-[#d4a855] hover:text-[#d4a855]"
+                className="inline-flex h-12 items-center justify-center rounded-md border border-white/25 px-6 text-sm font-semibold text-white transition-colors hover:border-[#d4a855] hover:text-[#ffffff]"
               >
                 {messages.hero.slideCtaSecondary}
               </Link>
@@ -456,7 +456,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
           'pointer-events-auto opacity-100 transition-opacity duration-300',
           'md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100',
           'md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100',
-          'hover:bg-[#b8894a]/40'
+          'hover:bg-[#b8894a]/30'
         )}
         aria-label={messages.a11y.paginationPrev}
       >
@@ -471,7 +471,7 @@ export function HeroFeaturedSliderClient(props: { items: FabricSummary[]; layout
           'pointer-events-auto opacity-100 transition-opacity duration-300',
           'md:pointer-events-none md:opacity-0 md:group-hover:pointer-events-auto md:group-hover:opacity-100',
           'md:group-focus-within:pointer-events-auto md:group-focus-within:opacity-100',
-          'hover:bg-[#b8894a]/40'
+          'hover:bg-[#b8894a]/30'
         )}
         aria-label={messages.a11y.paginationNext}
       >

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import * as XLSX from 'xlsx'
@@ -14,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useI18n } from '@/hooks/useI18n'
 import { fillMessage } from '@/lib/i18n/fill-message'
+import { isRemoteImageSrc } from '@/lib/utils'
 import type { BulkFabricRowInput } from '@/types/admin-fabric-management.types'
 
 const CHUNK_SIZE = 200
@@ -255,8 +257,6 @@ async function sendChunk(
   const json = await res.json()
   if (!res.ok || !json.success) {
     const msg = json.error?.message ?? 'Chunk import failed'
-    const details = json.error?.details
-    console.error('Bulk import chunk failed:', msg, details ? JSON.stringify(details) : '')
     throw new Error(msg)
   }
   return json.data as SendChunkResult
@@ -735,19 +735,23 @@ export function AdminFabricBulkCreateClient() {
                             className="inline-block"
                             title="Open image"
                           >
-                            <img
-                              src={row.images[0]}
-                              alt="hero"
-                              className="h-12 w-auto rounded object-cover"
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                              onError={(e) => {
-                                const img = e.currentTarget
-                                img.style.display = 'none'
-                                const next = img.nextElementSibling as HTMLElement | null
-                                if (next) next.classList.remove('hidden')
-                              }}
-                            />
+                            <div className="relative h-12 w-16 overflow-hidden rounded object-cover">
+                              <Image
+                                src={row.images[0]}
+                                alt="hero"
+                                fill
+                                sizes="64px"
+                                className="object-cover"
+                                unoptimized={isRemoteImageSrc(row.images[0])}
+                                onError={(e) => {
+                                  const img = e.currentTarget
+                                  const wrapper = img.parentElement as HTMLElement | null
+                                  if (wrapper) wrapper.style.display = 'none'
+                                  const fallback = wrapper?.nextElementSibling as HTMLElement | null
+                                  if (fallback) fallback.classList.remove('hidden')
+                                }}
+                              />
+                            </div>
                             <span className="hidden text-sm text-on-surface-variant">—</span>
                           </a>
                         ) : (

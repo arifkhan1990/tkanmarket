@@ -57,8 +57,8 @@
     "drizzle-orm": "^0.45.2",
     "ioredis": "^5.4.1",
     "lucide-react": "^0.468.0",
-    "next": "16.2.2",
-    "next-auth": "5.0.0-beta.30",
+    "next": "^16.3.1",
+    "next-auth": "^5.0.0-beta.32",
     "playwright": "^1.59.1",
     "postgres": "^3.4.5",
     "psycopg2-binary": "^0.0.1",
@@ -67,6 +67,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.72.0",
     "recharts": "^2.12.7",
+    "sharp": "^0.35.3",
     "sonner": "^1.5.0",
     "sqlalchemy": "^10.1.1",
     "tailwind-merge": "^2.5.2",
@@ -75,6 +76,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20.14.10",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -84,10 +86,12 @@
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "latest",
     "eslint": "^9.0.0",
-    "eslint-config-next": "16.2.2",
+    "eslint-config-next": "^16.3.1",
+    "jsdom": "^22.1.0",
     "postcss": "^8.4.41",
     "tailwindcss": "^3.4.10",
     "tsc-alias": "^1.8.16",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^4.1.10"
   }
 }

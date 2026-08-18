@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { apiSuccess } from '@/lib/utils/api-response'
 import { toApiErrorResponse } from '@/lib/api/handle-api-error'
-import { requireAdminSession } from '@/lib/auth/require-admin'
+import { requireAdminOnlySession, requireAdminSession } from '@/lib/auth/require-admin'
 import { SettingsService } from '@/services/admin/settings.service'
 
 const UpdateSchema = z.object({
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAdminSession()
+    await requireAdminOnlySession()
     const body = await req.json()
     const input = UpdateSchema.parse(body)
     const current = await SettingsService.getSettings()

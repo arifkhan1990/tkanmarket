@@ -46,6 +46,10 @@ const nextConfig = {
     cpus: 1
   },
   images: {
+    formats: [
+      'image/webp',
+      'image/avif',
+    ],
     remotePatterns: [
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
       { protocol: 'https', hostname: 'drive.google.com' },
